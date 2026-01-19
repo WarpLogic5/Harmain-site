@@ -1,0 +1,2093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        background: '#0f1012',
+                        surface: '#17191d',
+                        surfaceHighlight: '#1f2125',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0f1012;
+            color: #e5e7eb;
+            overflow-x: hidden;
+        }
+
+        .gradient-border {
+            position: relative;
+            background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 100%);
+            padding: 1px;
+            border-radius: 8px;
+        }
+        
+        .gradient-border.rounded-xl { border-radius: 12px; }
+        .gradient-border.rounded-2xl { border-radius: 16px; }
+
+        .surface-element {
+            background: linear-gradient(180deg, #1f2125 0%, #17191d 100%);
+            box-shadow: 
+                0px 1px 0px 0px rgba(255, 255, 255, 0.08) inset, 
+                0px -1px 0px 0px rgba(0, 0, 0, 0.2) inset,
+                0px 2px 4px -1px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .surface-interactive:hover {
+            background: linear-gradient(180deg, #25282d 0%, #1e2024 100%);
+            transform: translateY(-1px);
+        }
+
+        input, select, textarea {
+            transition: all 0.2s ease;
+        }
+        input:focus, select:focus, textarea:focus {
+            background-color: #1a1c20;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+        }
+
+        .highlight-star {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .highlight-star:hover {
+            transform: scale(1.1);
+        }
+        .highlight-star.active {
+            color: #fbbf24;
+        }
+
+        .toast {
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Radio button styling for type selection */
+        input[type="radio"].sr-only:checked + .gradient-border {
+            background: linear-gradient(180deg, rgba(99, 102, 241, 0.4) 0%, rgba(99, 102, 241, 0.2) 100%);
+        }
+        input[type="radio"].sr-only:checked + .gradient-border .surface-element {
+            border: 1px solid rgba(99, 102, 241, 0.5);
+        }
+        input[name="expType"][value="education"]:checked + .gradient-border {
+            background: linear-gradient(180deg, rgba(168, 85, 247, 0.4) 0%, rgba(168, 85, 247, 0.2) 100%);
+        }
+        input[name="expType"][value="education"]:checked + .gradient-border .surface-element {
+            border: 1px solid rgba(168, 85, 247, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-indigo-500/30">
+    
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 border-b border-white/5 bg-[#0f1012]/90 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <a href="index.html" class="font-bold text-lg tracking-tight text-white hover:text-gray-300 transition-colors">Harmain</a>
+                <span class="text-gray-600">/</span>
+                <span class="text-sm font-medium text-indigo-400">Admin Panel</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="index.html" class="text-sm text-gray-400 hover:text-white transition-colors">← Back to Site</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed top-20 right-4 z-50 space-y-2"></div>
+
+    <main class="flex-grow pt-24 pb-16 px-4 sm:px-6">
+        <div class="max-w-7xl mx-auto">
+
+            <!-- Header -->
+            <div class="mb-8">
+                <h1 class="text-3xl sm:text-4xl font-bold text-white mb-2">Admin Panel</h1>
+                <p class="text-gray-400">Manage your courses, experiences, and education entries.</p>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="gradient-border rounded-xl mb-8 overflow-hidden">
+                <div class="surface-element rounded-xl p-1 flex gap-1 overflow-x-auto">
+                    <button onclick="switchTab('courses')" id="tabCourses" class="flex-shrink-0 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-[11px] sm:text-sm font-medium transition-all bg-indigo-600 text-white whitespace-nowrap">
+                        <span class="flex items-center justify-center gap-1 sm:gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                            Courses
+                        </span>
+                    </button>
+                    <button onclick="switchTab('experiences')" id="tabExperiences" class="flex-shrink-0 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-[11px] sm:text-sm font-medium transition-all text-gray-400 hover:text-white hover:bg-white/5 whitespace-nowrap">
+                        <span class="flex items-center justify-center gap-1 sm:gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                            <span class="hidden sm:inline">Experience & Education</span>
+                            <span class="sm:hidden">Exp & Ed</span>
+                        </span>
+                    </button>
+                    <button onclick="switchTab('submissions')" id="tabSubmissions" class="flex-shrink-0 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-[11px] sm:text-sm font-medium transition-all text-gray-400 hover:text-white hover:bg-white/5 whitespace-nowrap">
+                        <span class="flex items-center justify-center gap-1 sm:gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            <span class="hidden sm:inline">Demo Submissions</span>
+                            <span class="sm:hidden">Submissions</span>
+                        </span>
+                    </button>
+                    <button onclick="switchTab('demoSlots')" id="tabDemoSlots" class="flex-shrink-0 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-[11px] sm:text-sm font-medium transition-all text-gray-400 hover:text-white hover:bg-white/5 whitespace-nowrap">
+                        <span class="flex items-center justify-center gap-1 sm:gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span class="hidden sm:inline">Demo Slots</span>
+                            <span class="sm:hidden">Slots</span>
+                        </span>
+                    </button>
+                    <button onclick="switchTab('homepage')" id="tabHomepage" class="flex-shrink-0 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-[11px] sm:text-sm font-medium transition-all text-gray-400 hover:text-white hover:bg-white/5 whitespace-nowrap">
+                        <span class="flex items-center justify-center gap-1 sm:gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-3m0 0l7-4 7 4M5 9v10a1 1 0 001 1h12a1 1 0 001-1V9M9 5l3-3m3 3l-3-3"></path></svg>
+                            Homepage
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- COURSES TAB -->
+            <div id="coursesSection">
+                <!-- Database Status Banner - Hidden by default -->
+                <div id="dbStatus" class="gradient-border rounded-xl mb-6 hidden">
+                    <div class="surface-element rounded-xl p-4 text-sm text-yellow-400" id="dbStatusText"></div>
+                </div>
+
+            <!-- Highlight Info Banner -->
+            <div class="gradient-border rounded-xl mb-8">
+                <div class="surface-element rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-yellow-500/10 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        </div>
+                        <div>
+                            <div class="text-sm font-semibold text-white">Homepage Highlights</div>
+                            <div class="text-xs text-gray-400">Click the star icon next to any course to feature it on the homepage. Only <span class="text-yellow-400 font-bold">2 courses</span> can be highlighted.</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm">
+                        <span class="text-gray-500">Currently highlighted:</span>
+                        <span id="highlightCount" class="font-bold text-yellow-400">0/2</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Courses List -->
+            <div class="space-y-6">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xl font-semibold text-white">All Courses</h2>
+                    <button onclick="openAddModal()" class="gradient-border rounded-lg">
+                        <div class="surface-element surface-interactive rounded-lg px-4 py-2 text-sm font-medium text-white flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            Add Course
+                        </div>
+                    </button>
+                </div>
+
+                <div id="coursesList" class="space-y-4">
+                    <!-- Courses loaded dynamically -->
+                    <div class="text-center py-12 text-gray-500">
+                        <svg class="w-8 h-8 mx-auto mb-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        Loading courses...
+                    </div>
+                </div>
+            </div><!-- End Courses List -->
+            </div><!-- End COURSES TAB / coursesSection -->
+
+            <!-- EXPERIENCES TAB (Hidden by default) -->
+            <div id="experiencesSection" class="hidden">
+                <!-- Info Banner -->
+                <div class="gradient-border rounded-xl mb-8">
+                    <div class="surface-element rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                            </div>
+                            <div>
+                                <div class="text-sm font-semibold text-white">Experience & Education</div>
+                                <div class="text-xs text-gray-400">Manage your work experience and education entries shown in the About section.</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 text-sm">
+                            <span class="px-2 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 text-xs font-medium">Experience</span>
+                            <span class="px-2 py-1 rounded-lg bg-purple-500/20 text-purple-300 text-xs font-medium">Education</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Experiences List -->
+                <div class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xl font-semibold text-white">All Entries</h2>
+                        <button onclick="openAddExperienceModal()" class="gradient-border rounded-lg">
+                            <div class="surface-element surface-interactive rounded-lg px-4 py-2 text-sm font-medium text-white flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                Add Entry
+                            </div>
+                        </button>
+                    </div>
+
+                    <div id="experiencesList" class="space-y-4">
+                        <!-- Experiences loaded dynamically -->
+                        <div class="text-center py-12 text-gray-500">
+                            <svg class="w-8 h-8 mx-auto mb-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            Loading experiences...
+                        </div>
+                    </div>
+                </div>
+            </div><!-- End EXPERIENCES TAB -->
+
+            <!-- SUBMISSIONS TAB (Hidden by default) -->
+            <div id="submissionsSection" class="hidden">
+                <!-- Info Banner -->
+                <div class="gradient-border rounded-xl mb-8">
+                    <div class="surface-element rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            </div>
+                            <div>
+                                <div class="text-sm font-semibold text-white">Demo Submissions</div>
+                                <div class="text-xs text-gray-400">View all contact form submissions and demo slot bookings from potential clients.</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 text-sm">
+                            <span class="text-gray-500">Total:</span>
+                            <span id="submissionsCount" class="font-bold text-green-400">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submissions List -->
+                <div class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xl font-semibold text-white">All Submissions</h2>
+                        <button onclick="loadSubmissions()" class="gradient-border rounded-lg">
+                            <div class="surface-element surface-interactive rounded-lg px-4 py-2 text-sm font-medium text-white flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                Refresh
+                            </div>
+                        </button>
+                    </div>
+
+                    <div id="submissionsList" class="space-y-4">
+                        <!-- Submissions loaded dynamically -->
+                        <div class="text-center py-12 text-gray-500">
+                            <svg class="w-8 h-8 mx-auto mb-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            Loading submissions...
+                        </div>
+                    </div>
+                </div>
+            </div><!-- End SUBMISSIONS TAB -->
+
+            <!-- DEMO SLOTS TAB -->
+            <div id="demoSlotsSection" class="hidden">
+                <!-- Info Banner -->
+                <div class="gradient-border rounded-xl mb-8">
+                    <div class="surface-element rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </div>
+                            <div>
+                                <div class="text-sm font-semibold text-white">Demo Booking Slots</div>
+                                <div class="text-xs text-gray-400">Create time slots that apply to all upcoming dates in the 14-day booking window.</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 text-sm">
+                            <span class="text-gray-500">Total:</span>
+                            <span id="slotsCount" class="font-bold text-blue-400">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Available Time Slots -->
+                <div class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xl font-semibold text-white">Available Time Slots</h2>
+                        <div class="flex gap-3">
+                            <button onclick="loadDemoSlots()" class="gradient-border rounded-lg">
+                                <div class="surface-element surface-interactive rounded-lg px-4 py-2 text-sm font-medium text-white flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                    Refresh
+                                </div>
+                            </button>
+                            <button onclick="openSlotModal()" class="gradient-border rounded-lg bg-blue-600/20">
+                                <div class="surface-element surface-interactive rounded-lg px-4 py-2 text-sm font-medium text-white flex items-center gap-2 bg-blue-600/30">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                    Add Slot
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="slotsList" class="space-y-3">
+                        <!-- Slots loaded dynamically -->
+                        <div class="text-center py-12 text-gray-500">
+                            <svg class="w-8 h-8 mx-auto mb-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            Loading slots...
+                        </div>
+                    </div>
+                </div>
+            </div><!-- End DEMO SLOTS TAB -->
+
+            <!-- HOMEPAGE TAB (Hidden by default) -->
+            <div id="homepageSection" class="hidden">
+                <!-- Info Banner -->
+                <div class="gradient-border rounded-xl mb-8">
+                    <div class="surface-element rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-3m0 0l7-4 7 4M5 9v10a1 1 0 001 1h12a1 1 0 001-1V9M9 5l3-3m3 3l-3-3"></path></svg>
+                            </div>
+                            <div>
+                                <div class="text-sm font-semibold text-white">Homepage Content</div>
+                                <div class="text-xs text-gray-400">Edit the hero section title and description displayed on your homepage.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Homepage Edit Form -->
+                <div class="gradient-border rounded-xl">
+                    <div class="surface-element rounded-xl p-6 sm:p-8">
+                        <form id="homepageForm" class="space-y-6">
+                            <!-- Title Input -->
+                            <div class="space-y-2">
+                                <label for="homepageTitle" class="text-xs font-bold text-gray-500 uppercase tracking-widest">Hero Title</label>
+                                <div class="relative gradient-border rounded-lg group input-focus-ring">
+                                    <textarea id="homepageTitle" rows="3" class="w-full bg-[#0f1012] text-gray-200 text-sm p-3 rounded-lg border-none focus:ring-0 placeholder-gray-700 resize-none" placeholder="Enter hero section title..." required></textarea>
+                                </div>
+                                <p class="text-xs text-gray-500">This appears as the main headline on your homepage.</p>
+                            </div>
+
+                            <!-- Description Input -->
+                            <div class="space-y-2">
+                                <label for="homepageDescription" class="text-xs font-bold text-gray-500 uppercase tracking-widest">Hero Description</label>
+                                <div class="relative gradient-border rounded-lg group input-focus-ring">
+                                    <textarea id="homepageDescription" rows="4" class="w-full bg-[#0f1012] text-gray-200 text-sm p-3 rounded-lg border-none focus:ring-0 placeholder-gray-700 resize-none" placeholder="Enter hero section description..." required></textarea>
+                                </div>
+                                <p class="text-xs text-gray-500">This appears below the title on your homepage.</p>
+                            </div>
+
+                            <!-- Profile Image URL -->
+                            <div class="space-y-2">
+                                <label for="homepageProfileImage" class="text-xs font-bold text-gray-500 uppercase tracking-widest">Profile Image URL</label>
+                                <div class="relative gradient-border rounded-lg group input-focus-ring">
+                                    <input type="url" id="homepageProfileImage" class="w-full bg-[#0f1012] text-gray-200 text-sm p-3 rounded-lg border-none focus:ring-0 placeholder-gray-700" placeholder="https://example.com/image.jpg">
+                                </div>
+                                <p class="text-xs text-gray-500">Direct URL to your profile image displayed in the About section.</p>
+                            </div>
+
+                            <!-- Action Bar -->
+                            <div class="flex items-center justify-end gap-3 pt-4 border-t border-white/5">
+                                <button type="button" onclick="loadHomepageContent()" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition-colors">
+                                    Reset
+                                </button>
+                                <div class="gradient-border rounded-lg">
+                                    <button type="submit" class="surface-element surface-interactive rounded-lg px-6 py-2 text-sm font-medium text-white flex items-center gap-2">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                        Save Changes
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div><!-- End HOMEPAGE TAB -->
+
+        </div>
+    </main>
+
+    <!-- Edit/Add Experience Modal -->
+    <div id="experienceModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeExperienceModal()"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4 overflow-y-auto">
+            <div class="gradient-border rounded-2xl w-full max-w-2xl my-8 relative" onclick="event.stopPropagation()">
+                <div class="surface-element rounded-2xl p-6 sm:p-8 max-h-[85vh] overflow-y-auto">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 id="expModalTitle" class="text-xl font-bold text-white">Add Experience</h3>
+                        <button onclick="closeExperienceModal()" class="text-gray-400 hover:text-white transition-colors">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <form id="experienceForm" class="space-y-6">
+                        <input type="hidden" id="expId">
+
+                        <!-- Type Selection -->
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Entry Type *</label>
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="expType" value="experience" class="sr-only peer" checked>
+                                    <div class="gradient-border rounded-lg peer-checked:bg-indigo-600/20">
+                                        <div class="surface-element rounded-lg p-4 text-center transition-all">
+                                            <svg class="w-6 h-6 mx-auto mb-2 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                                            <span class="text-sm font-medium text-white">Experience</span>
+                                        </div>
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="expType" value="education" class="sr-only peer">
+                                    <div class="gradient-border rounded-lg peer-checked:bg-purple-600/20">
+                                        <div class="surface-element rounded-lg p-4 text-center transition-all">
+                                            <svg class="w-6 h-6 mx-auto mb-2 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
+                                            <span class="text-sm font-medium text-white">Education</span>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Title / Role -->
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Title / Role *</label>
+                            <input type="text" id="expTitle" required placeholder="e.g., Senior Product Designer or Bachelor's Degree" class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50 placeholder-gray-600">
+                        </div>
+
+                        <!-- Company / Institution -->
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Company / Institution *</label>
+                            <input type="text" id="expCompany" required placeholder="e.g., Google or Stanford University" class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50 placeholder-gray-600">
+                        </div>
+
+                        <!-- Date Range -->
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Date Range *</label>
+                            <input type="text" id="expDateRange" required placeholder="e.g., 2020 - Present or Jan 2018 - Dec 2020" class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50 placeholder-gray-600">
+                        </div>
+
+                        <!-- Description -->
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Description</label>
+                            <textarea id="expDescription" rows="4" placeholder="Describe your responsibilities, achievements, or course of study..." class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50 placeholder-gray-600 resize-none"></textarea>
+                        </div>
+
+                        <!-- Display Order -->
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Display Order</label>
+                            <input type="number" id="expOrder" placeholder="1, 2, 3..." class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50 placeholder-gray-600">
+                            <p class="text-xs text-gray-500">Lower numbers appear first. Leave empty for default ordering.</p>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t border-white/5">
+                            <button type="submit" id="saveExpBtn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                <span id="saveExpBtnText">Save Entry</span>
+                            </button>
+                            <button type="button" onclick="closeExperienceModal()" class="px-6 py-3 text-gray-400 hover:text-white font-medium transition-colors">Cancel</button>
+                            <button type="button" id="deleteExpBtn" onclick="deleteExperience()" class="px-6 py-3 text-red-400 hover:text-red-300 font-medium transition-colors hidden">Delete</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Demo Slot Modal -->
+    <div id="slotModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeSlotModal()"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4 overflow-y-auto">
+            <div class="gradient-border rounded-2xl w-full max-w-md my-8 relative" onclick="event.stopPropagation()">
+                <div class="surface-element rounded-2xl p-6 sm:p-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 id="slotModalTitle" class="text-xl font-bold text-white">Add Time Slot</h3>
+                        <button onclick="closeSlotModal()" class="text-gray-400 hover:text-white transition-colors">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <form id="slotForm" class="space-y-6">
+                        <input type="hidden" id="slotId">
+
+                        <!-- Time Slot Input -->
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Time Slot *</label>
+                            <input type="text" id="slotTime" required placeholder="e.g., 2:00 PM - 2:30 PM" class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-blue-500/50 placeholder-gray-600">
+                            <p class="text-xs text-gray-500">Format: HH:MM AM/PM - HH:MM AM/PM (e.g., 8:15 PM - 8:45 PM)</p>
+                        </div>
+
+                        <!-- Available Status -->
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</label>
+                            <label class="cursor-pointer flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
+                                <input type="checkbox" id="slotAvailable" checked class="w-4 h-4 rounded bg-white/10 border border-white/20 checked:bg-blue-600 checked:border-blue-600 cursor-pointer">
+                                <span class="text-sm text-white">Available for booking</span>
+                            </label>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t border-white/5">
+                            <button type="submit" id="saveSlotBtn" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                <span id="saveSlotBtnText">Save Slot</span>
+                            </button>
+                            <button type="button" onclick="closeSlotModal()" class="px-6 py-3 text-gray-400 hover:text-white font-medium transition-colors">Cancel</button>
+                            <button type="button" id="deleteSlotBtn" onclick="deleteSlot()" class="px-6 py-3 text-red-400 hover:text-red-300 font-medium transition-colors hidden">Delete</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit/Add Course Modal -->
+    <div id="courseModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" onclick="closeModal()"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4 overflow-y-auto">
+            <div class="gradient-border rounded-2xl w-full max-w-3xl my-8 relative" onclick="event.stopPropagation()">
+                <div class="surface-element rounded-2xl p-6 sm:p-8 max-h-[85vh] overflow-y-auto">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 id="modalTitle" class="text-xl font-bold text-white">Edit Course</h3>
+                        <button onclick="closeModal()" class="text-gray-400 hover:text-white transition-colors">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <form id="courseForm" class="space-y-6">
+                        <input type="hidden" id="courseId">
+
+                        <!-- Basic Info -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Course Title *</label>
+                                <input type="text" id="courseTitle" required placeholder="e.g., Mastering Interface Design" class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50 placeholder-gray-600">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Badge Label</label>
+                                <input type="text" id="courseBadge" placeholder="e.g., New Release, Bestseller" class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50 placeholder-gray-600">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Category</label>
+                                <select id="courseCategory" class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50">
+                                    <option value="">Select category</option>
+                                    <option value="Accent">Accent</option>
+                                    <option value="Language">Language</option>
+                                    <option value="Science">Science</option>
+                                    <option value="Grammar">Grammar</option>
+                                    <option value="Writing">Writing</option>
+                                    <option value="Others">Others</option>
+                                </select>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Difficulty</label>
+                                <select id="courseDifficulty" class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50">
+                                    <option value="">Select level</option>
+                                    <option value="Beginner">Beginner</option>
+                                    <option value="Intermediate">Intermediate</option>
+                                    <option value="Advanced">Advanced</option>
+                                    <option value="All Levels">All Levels</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Duration</label>
+                                <input type="text" id="courseDuration" placeholder="e.g., 12 hours, 8 weeks" class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50 placeholder-gray-600">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Modules</label>
+                                <input type="text" id="courseModules" placeholder="e.g., 24 modules" class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50 placeholder-gray-600">
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Short Description *</label>
+                            <textarea id="courseDescription" rows="2" required placeholder="Brief tagline shown on cards..." class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50 placeholder-gray-600 resize-none"></textarea>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Long Description / About</label>
+                            <textarea id="courseLongDescription" rows="4" placeholder="Detailed course description for the course detail page..." class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50 placeholder-gray-600 resize-none"></textarea>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Highlights / What You'll Learn</label>
+                            <textarea id="courseHighlights" rows="3" placeholder="One highlight per line, e.g.:&#10;Design systems fundamentals&#10;Color theory&#10;Accessibility best practices" class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50 placeholder-gray-600 resize-none"></textarea>
+                            <p class="text-xs text-gray-500">Enter each highlight on a new line.</p>
+                        </div>
+
+                        <div class="space-y-3">
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Course Preview (Choose One or None)</label>
+                            
+                            <!-- Radio Options -->
+                            <div class="space-y-2 bg-white/5 p-3 rounded-lg border border-white/10">
+                                <div class="flex items-center gap-2">
+                                    <input type="radio" id="previewTypeNone" name="previewType" value="none" class="w-4 h-4 rounded cursor-pointer" checked>
+                                    <label for="previewTypeNone" class="text-xs text-gray-300 cursor-pointer">No preview</label>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input type="radio" id="previewTypeVideo" name="previewType" value="video" class="w-4 h-4 rounded cursor-pointer">
+                                    <label for="previewTypeVideo" class="text-xs text-gray-300 cursor-pointer">Upload video link</label>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <input type="radio" id="previewTypeImage" name="previewType" value="image" class="w-4 h-4 rounded cursor-pointer">
+                                    <label for="previewTypeImage" class="text-xs text-gray-300 cursor-pointer">Image link</label>
+                                </div>
+                            </div>
+
+                            <!-- Video Input (Hidden by default) -->
+                            <div id="videoSection" class="space-y-2 hidden">
+                                <label class="text-xs font-semibold text-gray-400">Video URL or Embed</label>
+                                <textarea id="courseVideo" rows="2" placeholder="Vimeo/YouTube URL or full iframe embed code" class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50 placeholder-gray-600 resize-none font-mono text-xs"></textarea>
+                                <p class="text-xs text-gray-500">Supports YouTube, Vimeo links or raw iframe HTML.</p>
+                            </div>
+
+                            <!-- Image Input (Hidden by default) -->
+                            <div id="imageSection" class="space-y-2 hidden">
+                                <label class="text-xs font-semibold text-gray-400">Course Image URL</label>
+                                <input type="url" id="courseImageUrl" placeholder="https://example.com/image.jpg" class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50 placeholder-gray-600">
+                                <p class="text-xs text-gray-500">Paste a direct link to an image (JPG, PNG, WebP)</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Display Order</label>
+                            <input type="number" id="courseOrder" placeholder="1, 2, 3..." class="w-full bg-[#0f1012] text-white text-sm p-3 rounded-lg border border-white/10 focus:border-indigo-500/50 placeholder-gray-600">
+                            <p class="text-xs text-gray-500">Lower numbers appear first.</p>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t border-white/5">
+                            <button type="submit" id="saveBtn" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                <span id="saveBtnText">Save Changes</span>
+                            </button>
+                            <button type="button" onclick="closeModal()" class="px-6 py-3 text-gray-400 hover:text-white font-medium transition-colors">Cancel</button>
+                            <button type="button" id="deleteBtn" onclick="deleteCourse()" class="px-6 py-3 text-red-400 hover:text-red-300 font-medium transition-colors hidden">Delete</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase client setup
+        const supabaseUrl = 'https://qwnwudtlbvdpjhadyfjz.supabase.co';
+        const supabaseAnonKey = 'sb_publishable_YhBUs4y6-nXwZxxzuUjWiw_E7lPZLR8';
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+        // Global state
+        let allCourses = [];
+        let allExperiences = [];
+        let hasHighlightColumn = true; // Assume true, check later
+        let existingColumns = new Set(); // Track which columns exist in DB
+        let existingExpColumns = new Set(); // Track which columns exist in experiences table
+        const MAX_HIGHLIGHTS = 2;
+        let currentTab = 'courses';
+        let isUserAdmin = false;
+
+        // Check if user is admin
+        async function checkAdminAccess() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                console.log('Session check:', session);
+                
+                if (!session?.user) {
+                    console.warn('No session found - user not signed in');
+                    redirectToHome('Not signed in. Please sign in first.');
+                    return;
+                }
+
+                console.log('Checking admin status for user:', session.user.email, 'ID:', session.user.id);
+
+                const { data, error } = await supabaseClient
+                    .from('admins')
+                    .select('id')
+                    .eq('id', session.user.id)
+                    .single();
+
+                console.log('Admin query result:', { data, error });
+                
+                if (error) {
+                    console.error('Full error details:', JSON.stringify(error, null, 2));
+                }
+
+                if (error || !data) {
+                    console.warn('User not found in admins table:', session.user.email);
+                    redirectToHome(`Not an admin: ${session.user.email}`);
+                    return;
+                }
+
+                isUserAdmin = true;
+                console.log('✅ Admin access granted for:', session.user.email);
+            } catch (error) {
+                console.error('Admin check error:', error);
+                redirectToHome('Admin check failed: ' + error.message);
+            }
+        }
+
+        function redirectToHome(reason) {
+            console.warn('Access denied:', reason);
+            document.body.innerHTML = `
+                <div style="display:flex; align-items:center; justify-content:center; min-height:100vh; background:#0f1012; color:#fff; font-family:Inter,sans-serif;">
+                    <div style="text-align:center; max-width:400px;">
+                        <h1 style="font-size:24px; margin-bottom:10px;">Access Denied</h1>
+                        <p style="color:#999; margin-bottom:20px;">${reason}</p>
+                        <a href="index.html" style="display:inline-block; padding:10px 20px; background:#4f46e5; color:#fff; text-decoration:none; border-radius:6px;">Back to Home</a>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Tab switching
+        function switchTab(tab) {
+            console.log('switchTab called with:', tab);
+            currentTab = tab;
+            const coursesSection = document.getElementById('coursesSection');
+            const experiencesSection = document.getElementById('experiencesSection');
+            const submissionsSection = document.getElementById('submissionsSection');
+            const demoSlotsSection = document.getElementById('demoSlotsSection');
+            const homepageSection = document.getElementById('homepageSection');
+            const tabCourses = document.getElementById('tabCourses');
+            const tabExperiences = document.getElementById('tabExperiences');
+            const tabSubmissions = document.getElementById('tabSubmissions');
+            const tabDemoSlots = document.getElementById('tabDemoSlots');
+            const tabHomepage = document.getElementById('tabHomepage');
+            
+            const activeClass = 'flex-1 px-4 py-3 rounded-lg text-sm font-medium transition-all bg-indigo-600 text-white';
+            const inactiveClass = 'flex-1 px-4 py-3 rounded-lg text-sm font-medium transition-all text-gray-400 hover:text-white hover:bg-white/5';
+
+            // Hide all sections
+            coursesSection.classList.add('hidden');
+            experiencesSection.classList.add('hidden');
+            submissionsSection.classList.add('hidden');
+            demoSlotsSection.classList.add('hidden');
+            homepageSection.classList.add('hidden');
+            
+            // Reset all tabs to inactive
+            tabCourses.className = inactiveClass;
+            tabExperiences.className = inactiveClass;
+            tabSubmissions.className = inactiveClass;
+            tabDemoSlots.className = inactiveClass;
+            tabHomepage.className = inactiveClass;
+
+            // Show selected section and activate tab
+            if (tab === 'courses') {
+                coursesSection.classList.remove('hidden');
+                tabCourses.className = activeClass;
+            } else if (tab === 'experiences') {
+                experiencesSection.classList.remove('hidden');
+                tabExperiences.className = activeClass;
+                if (allExperiences.length === 0) {
+                    loadExperiences();
+                } else {
+                    renderExperiences();
+                }
+            } else if (tab === 'submissions') {
+                submissionsSection.classList.remove('hidden');
+                tabSubmissions.className = activeClass;
+                loadSubmissions();
+            } else if (tab === 'demoSlots') {
+                demoSlotsSection.classList.remove('hidden');
+                tabDemoSlots.className = activeClass;
+                loadDemoSlots();
+            } else if (tab === 'homepage') {
+                homepageSection.classList.remove('hidden');
+                tabHomepage.className = activeClass;
+                loadHomepageContent();
+            }
+        }
+
+        // Toast notification
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-green-500/90' : type === 'error' ? 'bg-red-500/90' : 'bg-yellow-500/90';
+            toast.className = `toast ${bgColor} text-white px-4 py-3 rounded-lg shadow-lg text-sm font-medium flex items-center gap-2 max-w-md`;
+            toast.innerHTML = `
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    ${type === 'success' ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>' : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>'}
+                </svg>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        // Show/hide database status
+        function showDbStatus(message) {
+            const el = document.getElementById('dbStatus');
+            document.getElementById('dbStatusText').textContent = message;
+            el.classList.remove('hidden');
+        }
+        
+        function hideDbStatus() {
+            document.getElementById('dbStatus').classList.add('hidden');
+        }
+
+        // Load all courses from database
+        async function loadCourses() {
+            console.log('Loading courses...');
+            
+            try {
+                const { data, error } = await supabaseClient
+                    .from('courses')
+                    .select('*')
+                    .order('order', { ascending: true });
+
+                if (error) {
+                    console.error('Error loading courses:', error);
+                    showToast('Failed to load courses: ' + error.message, 'error');
+                    return;
+                }
+
+                console.log('Loaded courses:', data);
+                allCourses = data || [];
+                
+                // Detect which columns exist in the database
+                if (allCourses.length > 0) {
+                    existingColumns = new Set(Object.keys(allCourses[0]));
+                    console.log('Existing columns:', Array.from(existingColumns));
+                    
+                    hasHighlightColumn = existingColumns.has('is_highlighted');
+                    if (!hasHighlightColumn) {
+                        showDbStatus('Note: To enable homepage highlights, add "is_highlighted" column to your courses table.');
+                    } else {
+                        hideDbStatus();
+                    }
+                }
+                
+                renderCourses();
+                updateHighlightCount();
+            } catch (e) {
+                console.error('Exception loading courses:', e);
+                showToast('Error: ' + e.message, 'error');
+            }
+        }
+
+        // Render courses list
+        function renderCourses() {
+            const container = document.getElementById('coursesList');
+            
+            if (allCourses.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-500">
+                        <svg class="w-12 h-12 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                        <p class="text-lg font-medium mb-2">No courses yet</p>
+                        <p class="text-sm">Click "Add Course" to create your first course.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            
+            for (let i = 0; i < allCourses.length; i++) {
+                const course = allCourses[i];
+                const isHighlighted = hasHighlightColumn && course.is_highlighted === true;
+                const highlightedCount = hasHighlightColumn ? allCourses.filter(c => c.is_highlighted === true).length : 0;
+                const canHighlight = hasHighlightColumn && (isHighlighted || highlightedCount < MAX_HIGHLIGHTS);
+
+                html += `
+                    <div class="gradient-border rounded-xl">
+                        <div class="surface-element rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                            
+                            <!-- Highlight Star -->
+                            <button 
+                                onclick="toggleHighlight(${i})" 
+                                class="highlight-star ${isHighlighted ? 'active text-yellow-400' : 'text-gray-600'} ${!hasHighlightColumn ? 'opacity-30 cursor-not-allowed' : ''} ${!canHighlight && !isHighlighted ? 'opacity-30 cursor-not-allowed' : ''}" 
+                                ${!hasHighlightColumn || (!canHighlight && !isHighlighted) ? 'disabled' : ''} 
+                                title="${!hasHighlightColumn ? 'Highlight column not in database' : isHighlighted ? 'Remove from homepage' : canHighlight ? 'Feature on homepage' : 'Max 2 highlights allowed'}"
+                            >
+                                <svg class="w-6 h-6" fill="${isHighlighted ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                            </button>
+
+                            <!-- Course Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap mb-1">
+                                    <h4 class="font-semibold text-white truncate">${course.title || 'Untitled'}</h4>
+                                    ${course.badge ? `<span class="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-xs">${course.badge}</span>` : ''}
+                                    ${isHighlighted ? `<span class="px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 text-xs font-medium">★ Featured</span>` : ''}
+                                </div>
+                                <p class="text-sm text-gray-400 line-clamp-1">${course.description || 'No description'}</p>
+                                <div class="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                                    ${course.category ? `<span>${course.category}</span>` : ''}
+                                    ${course.difficulty ? `<span>• ${course.difficulty}</span>` : ''}
+                                    ${course.duration ? `<span>• ${course.duration}</span>` : ''}
+                                    <span>• Order: ${course.order || 0}</span>
+                                    <span class="text-gray-600">• ID: ${course.id}</span>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex items-center gap-2">
+                                <button onclick="openEditModal(${i})" class="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Edit">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                </button>
+                                <a href="course.html?id=${course.id}" target="_blank" class="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="View">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        // Update highlight count display
+        function updateHighlightCount() {
+            const count = hasHighlightColumn ? allCourses.filter(c => c.is_highlighted === true).length : 0;
+            document.getElementById('highlightCount').textContent = `${count}/${MAX_HIGHLIGHTS}`;
+        }
+
+        // Toggle highlight status - uses array index
+        async function toggleHighlight(index) {
+            if (!hasHighlightColumn) {
+                showToast('Highlight feature not available. Add "is_highlighted" column to database.', 'error');
+                return;
+            }
+
+            const course = allCourses[index];
+            if (!course) {
+                showToast('Course not found', 'error');
+                return;
+            }
+
+            const currentlyHighlighted = allCourses.filter(c => c.is_highlighted === true).length;
+            const isCurrentlyHighlighted = course.is_highlighted === true;
+
+            if (!isCurrentlyHighlighted && currentlyHighlighted >= MAX_HIGHLIGHTS) {
+                showToast(`Maximum ${MAX_HIGHLIGHTS} courses can be highlighted. Remove one first.`, 'warning');
+                return;
+            }
+
+            const newValue = !isCurrentlyHighlighted;
+
+            try {
+                const { error } = await supabaseClient
+                    .from('courses')
+                    .update({ is_highlighted: newValue })
+                    .eq('id', course.id);
+
+                if (error) throw error;
+
+                course.is_highlighted = newValue;
+                renderCourses();
+                updateHighlightCount();
+                showToast(newValue ? 'Course added to homepage!' : 'Course removed from homepage');
+            } catch (error) {
+                console.error('Error updating highlight:', error);
+                showToast('Failed to update: ' + error.message, 'error');
+            }
+        }
+
+        // Open modal for adding new course
+        function openAddModal() {
+            document.getElementById('modalTitle').textContent = 'Add New Course';
+            document.getElementById('saveBtnText').textContent = 'Create Course';
+            document.getElementById('deleteBtn').classList.add('hidden');
+            document.getElementById('courseForm').reset();
+            document.getElementById('courseId').value = '';
+            document.getElementById('courseModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            // Reset preview type to "none"
+            document.getElementById('previewTypeNone').checked = true;
+            document.getElementById('videoSection').classList.add('hidden');
+            document.getElementById('imageSection').classList.add('hidden');
+            document.getElementById('courseVideo').value = '';
+            document.getElementById('courseImageUrl').value = '';
+        }
+
+        // Open modal for editing - uses array index
+        function openEditModal(index) {
+            console.log('openEditModal called with index:', index);
+            
+            const course = allCourses[index];
+            if (!course) {
+                console.error('Course not found at index:', index);
+                showToast('Course not found', 'error');
+                return;
+            }
+
+            console.log('Editing course:', course);
+
+            document.getElementById('modalTitle').textContent = 'Edit Course';
+            document.getElementById('saveBtnText').textContent = 'Save Changes';
+            document.getElementById('deleteBtn').classList.remove('hidden');
+
+            // Populate form fields
+            document.getElementById('courseId').value = course.id;
+            document.getElementById('courseTitle').value = course.title || '';
+            document.getElementById('courseBadge').value = course.badge || '';
+            document.getElementById('courseCategory').value = course.category || '';
+            document.getElementById('courseDifficulty').value = course.difficulty || '';
+            document.getElementById('courseDuration').value = course.duration || '';
+            document.getElementById('courseModules').value = course.modules || '';
+            document.getElementById('courseDescription').value = course.description || '';
+            document.getElementById('courseLongDescription').value = course.long_description || course.description_long || '';
+            
+            // Handle highlights
+            let highlights = course.highlights || course.bullet_points || '';
+            if (Array.isArray(highlights)) {
+                highlights = highlights.join('\n');
+            } else if (typeof highlights === 'string' && highlights.startsWith('[')) {
+                try { highlights = JSON.parse(highlights).join('\n'); } catch(e) {}
+            }
+            document.getElementById('courseHighlights').value = highlights;
+            
+            // Handle preview type and fields
+            const videoUrl = course.video_url || course.preview_url || course.video || '';
+            const imageUrl = course.image_url || '';
+            
+            // Determine which type is set
+            if (imageUrl) {
+                document.getElementById('previewTypeImage').checked = true;
+                document.getElementById('imageSection').classList.remove('hidden');
+                document.getElementById('videoSection').classList.add('hidden');
+                document.getElementById('courseImageUrl').value = course.image_url || '';
+            } else if (videoUrl) {
+                document.getElementById('previewTypeVideo').checked = true;
+                document.getElementById('videoSection').classList.remove('hidden');
+                document.getElementById('imageSection').classList.add('hidden');
+                document.getElementById('courseVideo').value = videoUrl;
+            } else {
+                document.getElementById('previewTypeNone').checked = true;
+                document.getElementById('videoSection').classList.add('hidden');
+                document.getElementById('imageSection').classList.add('hidden');
+            }
+            
+            document.getElementById('courseOrder').value = course.order || '';
+
+            // Show modal
+            document.getElementById('courseModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('courseModal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        // Save course (create or update)
+        document.getElementById('courseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const courseId = document.getElementById('courseId').value;
+            const isNew = !courseId;
+
+            // Get highlights as array
+            const highlightsRaw = document.getElementById('courseHighlights').value;
+            const highlightsArray = highlightsRaw.split('\n').map(h => h.trim()).filter(Boolean);
+
+            // Get preview type and handle image/video accordingly
+            const previewType = document.querySelector('input[name="previewType"]:checked').value;
+            let videoUrlValue = null;
+            let imageUrlValue = null;
+
+            // Handle image URL if selected
+            if (previewType === 'image') {
+                imageUrlValue = document.getElementById('courseImageUrl').value.trim() || null;
+            } else if (previewType === 'video') {
+                videoUrlValue = document.getElementById('courseVideo').value.trim() || null;
+            }
+
+            // Build course data - only include columns that exist in the database
+            const courseData = {};
+            
+            // Always include these core fields
+            courseData.title = document.getElementById('courseTitle').value.trim();
+            courseData.description = document.getElementById('courseDescription').value.trim();
+            
+            // Only include optional fields if they exist in the database schema
+            const optionalFields = {
+                badge: document.getElementById('courseBadge').value.trim() || null,
+                category: document.getElementById('courseCategory').value || null,
+                difficulty: document.getElementById('courseDifficulty').value || null,
+                duration: document.getElementById('courseDuration').value.trim() || null,
+                modules: document.getElementById('courseModules').value.trim() || null,
+                long_description: document.getElementById('courseLongDescription').value.trim() || null,
+                highlights: highlightsArray.length > 0 ? highlightsArray : null,
+                video_url: videoUrlValue,
+                image_url: imageUrlValue,
+                order: parseInt(document.getElementById('courseOrder').value) || 0
+            };
+            
+            // Only add fields that exist in the database
+            for (const [key, value] of Object.entries(optionalFields)) {
+                if (existingColumns.has(key) || isNew) {
+                    // For new courses, try all fields; for updates, only use existing columns
+                    if (isNew || existingColumns.has(key)) {
+                        courseData[key] = value;
+                    }
+                }
+            }
+            
+            console.log('Saving course data:', courseData);
+            console.log('Existing columns:', Array.from(existingColumns));
+
+            const saveBtn = document.getElementById('saveBtn');
+            saveBtn.disabled = true;
+            document.getElementById('saveBtnText').textContent = 'Saving...';
+
+            try {
+                if (isNew) {
+                    // For new courses, only include fields that exist in the database
+                    const minimalData = {
+                        title: courseData.title,
+                        description: courseData.description
+                    };
+                    
+                    // Add optional fields only if they exist in the database schema
+                    if (courseData.badge && existingColumns.has('badge')) minimalData.badge = courseData.badge;
+                    if (courseData.category && existingColumns.has('category')) minimalData.category = courseData.category;
+                    if (courseData.difficulty && existingColumns.has('difficulty')) minimalData.difficulty = courseData.difficulty;
+                    if (courseData.duration && existingColumns.has('duration')) minimalData.duration = courseData.duration;
+                    if (courseData.modules && existingColumns.has('modules')) minimalData.modules = courseData.modules;
+                    if (courseData.long_description && existingColumns.has('long_description')) minimalData.long_description = courseData.long_description;
+                    if (courseData.highlights && existingColumns.has('highlights')) minimalData.highlights = courseData.highlights;
+                    if (courseData.order !== undefined && existingColumns.has('order')) minimalData.order = courseData.order;
+                    if (courseData.video_url && existingColumns.has('video_url')) minimalData.video_url = courseData.video_url;
+                    if (courseData.image_url && existingColumns.has('image_url')) minimalData.image_url = courseData.image_url;
+                    
+                    const { data, error } = await supabaseClient.from('courses').insert([minimalData]).select();
+                    if (error) throw error;
+                    if (!data || data.length === 0) throw new Error('Insert returned no data');
+                    console.log('Insert result:', data);
+                    showToast('Course created successfully!');
+                } else {
+                    // For updates, build the update object
+                    // title and description are always included
+                    const updateData = {
+                        title: courseData.title,
+                        description: courseData.description
+                    };
+                    
+                    // Add optional fields only if they exist in the database
+                    for (const key of ['badge', 'category', 'difficulty', 'duration', 'modules', 'long_description', 'highlights', 'video_url', 'image_url', 'order']) {
+                        if (existingColumns.has(key)) {
+                            updateData[key] = optionalFields[key];
+                        }
+                    }
+                    
+                    console.log('Course ID to update:', courseId, 'Type:', typeof courseId);
+                    console.log('Update data:', updateData);
+                    console.log('Existing columns:', Array.from(existingColumns));
+                    
+                    // First verify the course exists
+                    const { data: existingCourse, error: fetchError } = await supabaseClient
+                        .from('courses')
+                        .select('id')
+                        .eq('id', courseId)
+                        .single();
+                    
+                    console.log('Course lookup:', existingCourse, fetchError);
+                    
+                    if (fetchError || !existingCourse) {
+                        throw new Error('Course not found in database. ID: ' + courseId);
+                    }
+                    
+                    // Now update
+                    const { data, error, count } = await supabaseClient
+                        .from('courses')
+                        .update(updateData)
+                        .eq('id', courseId)
+                        .select();
+                    
+                    console.log('Update response - data:', data, 'error:', error, 'count:', count);
+                    
+                    if (error) {
+                        console.error('Supabase error details:', error);
+                        throw error;
+                    }
+                    
+                    // RLS might be blocking the update - data will be empty
+                    if (!data || data.length === 0) {
+                        throw new Error('Update blocked. Please check Row Level Security (RLS) policies in Supabase. Go to: Database → Tables → courses → RLS and add an UPDATE policy or disable RLS temporarily.');
+                    }
+                    
+                    console.log('Updated course:', data[0]);
+                    showToast('Course updated successfully!');
+                }
+
+                closeModal();
+                await loadCourses();
+            } catch (error) {
+                console.error('Error saving course:', error);
+                showToast('Failed to save: ' + error.message, 'error');
+            } finally {
+                saveBtn.disabled = false;
+                document.getElementById('saveBtnText').textContent = isNew ? 'Create Course' : 'Save Changes';
+            }
+        });
+
+        // Delete course
+        async function deleteCourse() {
+            const courseId = document.getElementById('courseId').value;
+            if (!courseId) return;
+
+            if (!confirm('Are you sure you want to delete this course? This action cannot be undone.')) {
+                return;
+            }
+
+            // Require user session (helps align with typical RLS policies)
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session?.user) {
+                    showToast('Please sign in to delete courses.', 'error');
+                    return;
+                }
+            } catch (e) {
+                console.warn('Session check failed:', e);
+            }
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('courses')
+                    .delete()
+                    .eq('id', courseId)
+                    .select('id'); // Return deleted rows to confirm
+                
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    console.warn('Delete returned 0 rows. Likely RLS blocking or invalid id.', { id: courseId });
+                    showToast('Delete blocked or not permitted. Check admin access.', 'error');
+                    return;
+                }
+
+                showToast('Course deleted successfully');
+                closeModal();
+                await loadCourses();
+            } catch (error) {
+                console.error('Error deleting course:', error);
+                showToast('Failed to delete: ' + error.message, 'error');
+            }
+        }
+
+        // Initialize
+        // ==========================================
+        // SUBMISSIONS MANAGEMENT
+        // ==========================================
+
+        let allSubmissions = [];
+
+        // Load all submissions from database
+        async function loadSubmissions() {
+            const container = document.getElementById('submissionsList');
+            const countEl = document.getElementById('submissionsCount');
+            
+            container.innerHTML = '<div class="text-center py-12 text-gray-500"><svg class="w-8 h-8 mx-auto mb-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Loading submissions...</div>';
+
+            try {
+                const { data, error } = await supabaseClient
+                    .from('leads')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                allSubmissions = data || [];
+                countEl.textContent = allSubmissions.length;
+                renderSubmissions();
+            } catch (error) {
+                console.error('Error loading submissions:', error);
+                container.innerHTML = '<div class="text-center py-12 text-red-400"><p class="text-sm">Failed to load submissions. Please try again.</p></div>';
+                showToast('Failed to load submissions', 'error');
+            }
+        }
+
+        // Render submissions list
+        function renderSubmissions() {
+            const container = document.getElementById('submissionsList');
+            
+            if (allSubmissions.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-500">
+                        <svg class="w-12 h-12 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <p class="text-lg font-medium mb-2">No submissions yet</p>
+                        <p class="text-sm">Form submissions will appear here when users contact you.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Time Ago Helper
+            const timeAgo = (date) => {
+                const seconds = Math.floor((new Date() - date) / 1000);
+                if (seconds < 60) return 'Just now';
+                const minutes = Math.floor(seconds / 60);
+                if (minutes < 60) return `${minutes}m ago`;
+                const hours = Math.floor(minutes / 60);
+                if (hours < 24) return `${hours}h ago`;
+                const days = Math.floor(hours / 24);
+                if (days < 30) return `${days}d ago`;
+                const months = Math.floor(days / 30);
+                if (months < 12) return `${months}mo ago`;
+                return `${Math.floor(months / 12)}y ago`;
+            };
+
+            const html = allSubmissions.map(submission => {
+                const date = new Date(submission.created_at);
+                const formattedDate = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+                const formattedTime = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                const relativeTime = timeAgo(date);
+                
+                // Parse message to extract course and slot info
+                const lines = (submission.message || '').split('\n');
+                let courseInfo = '';
+                let slotInfo = '';
+                let actualMessage = '';
+                
+                lines.forEach(line => {
+                    if (line.startsWith('[Course]')) {
+                        courseInfo = line.replace('[Course]', '').trim();
+                    } else if (line.startsWith('[Preferred Demo Slot]')) {
+                        slotInfo = line.replace('[Preferred Demo Slot]', '').trim();
+                    } else if (line.trim()) {
+                        actualMessage += line + '\n';
+                    }
+                });
+                actualMessage = actualMessage.trim();
+                
+                // Escape HTML and special characters
+                const escapeHtml = (text) => {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                };
+                actualMessage = escapeHtml(actualMessage).replace(/\n/g, '<br>');
+
+                // Parse slot info
+                let slotDateHtml = '';
+                if (slotInfo) {
+                    const parts = slotInfo.split(' at ');
+                    const sDate = parts[0] || '';
+                    const sTime = parts[1] || '';
+                    
+                    slotDateHtml = '<div class="mb-5 pb-5 border-b border-white/5">' +
+                        '<div class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Preferred Demo Slot</div>' +
+                        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
+                        '<div class="bg-indigo-500/5 border border-indigo-500/10 rounded-lg p-3 flex items-center gap-3">' +
+                        '<div class="w-8 h-8 rounded-full bg-indigo-500/10 flex items-center justify-center flex-shrink-0">' +
+                        '<svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>' +
+                        '</div>' +
+                        '<div>' +
+                        '<div class="text-[10px] text-indigo-300/70 font-bold uppercase tracking-wider">Date</div>' +
+                        '<div class="text-sm font-medium text-indigo-200">' + sDate + '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '<div class="bg-purple-500/5 border border-purple-500/10 rounded-lg p-3 flex items-center gap-3">' +
+                        '<div class="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center flex-shrink-0">' +
+                        '<svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' +
+                        '</div>' +
+                        '<div>' +
+                        '<div class="text-[10px] text-purple-300/70 font-bold uppercase tracking-wider">Time (IST)</div>' +
+                        '<div class="text-sm font-medium text-purple-200">' + sTime + '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>';
+                }
+
+                return `
+                    <div class="gradient-border rounded-xl group hover:border-indigo-500/30 transition-colors">
+                        <div class="surface-element rounded-xl p-6">
+                            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6 border-b border-white/5 pb-4">
+                                <div>
+                                    <div class="flex items-center gap-3 mb-1">
+                                        <h3 class="text-lg font-bold text-white">${submission.name || 'No name'}</h3>
+                                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">Lead</span>
+                                    </div>
+                                    <a href="mailto:${submission.email}" class="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-2">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                                        ${submission.email}
+                                    </a>
+                                </div>
+                                <div class="flex flex-col items-end gap-1">
+                                    <div class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-gray-300 flex items-center gap-2" title="Submitted">
+                                        <svg class="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                        ${relativeTime}
+                                    </div>
+                                    <div class="text-[11px] text-gray-500 font-mono mt-1" title="${date.toString()}">
+                                        ${formattedDate} • ${formattedTime}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            ${courseInfo ? `
+                                <div class="mb-3 pb-3 border-b border-white/5">
+                                    <div class="text-xs text-gray-500 mb-1">Interested Course</div>
+                                    <div class="text-sm text-indigo-300 font-medium">${courseInfo}</div>
+                                </div>
+                            ` : ''}
+                            
+                            ${slotDateHtml}
+                            
+                            ${actualMessage ? `
+                                <div>
+                                    <div class="text-xs text-gray-500 mb-2">Message</div>
+                                    <div class="text-sm text-gray-300 leading-relaxed bg-white/5 rounded-lg p-3">
+                                        ${actualMessage}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            <div class="mt-4 flex items-center gap-2">
+                                <button data-submission-id="${submission.id}" class="delete-submission-btn text-xs px-3 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = html;
+        }
+
+        // Delete submission
+        async function deleteSubmission(id) {
+            if (!confirm('Are you sure you want to delete this submission? This action cannot be undone.')) return;
+
+            // Require user session (helps align with typical RLS policies)
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session?.user) {
+                    showToast('Please sign in to delete submissions.', 'warning');
+                    return;
+                }
+            } catch (e) {
+                console.warn('Session check failed:', e);
+            }
+
+            // Perform delete and verify affected rows
+            try {
+                const cleanId = (id || '').trim();
+                const { data, error } = await supabaseClient
+                    .from('leads')
+                    .delete()
+                    .eq('id', cleanId)
+                    .select('id'); // return deleted rows to confirm
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    console.warn('Delete returned 0 rows. Likely RLS blocking or invalid id.', { id: cleanId });
+                    showToast('Delete blocked or not permitted. Check admin access.', 'warning');
+                    return;
+                }
+
+                showToast('Submission deleted successfully');
+                loadSubmissions();
+            } catch (error) {
+                console.error('Error deleting submission:', error);
+                showToast(`Delete failed: ${error.message || 'Unknown error'}`, 'error');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Admin panel initializing...');
+            checkAdminAccess();
+            loadCourses();
+
+            // Delegated click handler for delete buttons in submissions
+            document.addEventListener('click', (e) => {
+                const btn = e.target.closest('.delete-submission-btn');
+                if (!btn) return;
+                const id = btn.getAttribute('data-submission-id');
+                if (!id || typeof id !== 'string') {
+                    console.error('Invalid submission id on delete button:', id);
+                    showToast('Invalid submission id', 'error');
+                    return;
+                }
+                deleteSubmission(id);
+            });
+
+            // Handle preview type radio buttons
+            const previewRadios = document.querySelectorAll('input[name="previewType"]');
+            const videoSection = document.getElementById('videoSection');
+            const imageSection = document.getElementById('imageSection');
+            
+            previewRadios.forEach(radio => {
+                radio.addEventListener('change', () => {
+                    const value = document.querySelector('input[name="previewType"]:checked').value;
+                    
+                    if (value === 'video') {
+                        videoSection.classList.remove('hidden');
+                        imageSection.classList.add('hidden');
+                        document.getElementById('courseImageUrl').value = '';
+                    } else if (value === 'image') {
+                        imageSection.classList.remove('hidden');
+                        videoSection.classList.add('hidden');
+                        document.getElementById('courseVideo').value = '';
+                    } else {
+                        videoSection.classList.add('hidden');
+                        imageSection.classList.add('hidden');
+                        document.getElementById('courseVideo').value = '';
+                        document.getElementById('courseImageUrl').value = '';
+                    }
+                });
+            });
+        });
+
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                closeExperienceModal();
+            }
+        });
+
+        // ==========================================
+        // EXPERIENCES MANAGEMENT
+        // ==========================================
+
+        // Load all experiences from database
+        async function loadExperiences() {
+            console.log('Loading experiences...');
+            
+            try {
+                const { data, error } = await supabaseClient
+                    .from('experiences')
+                    .select('*')
+                    .order('order', { ascending: true, nullsFirst: false })
+                    .order('id', { ascending: true });
+
+                if (error) {
+                    console.error('Error loading experiences:', error);
+                    showToast('Failed to load experiences: ' + error.message, 'error');
+                    return;
+                }
+
+                console.log('Loaded experiences:', data);
+                allExperiences = data || [];
+                
+                // Detect which columns exist in the database
+                if (allExperiences.length > 0) {
+                    existingExpColumns = new Set(Object.keys(allExperiences[0]));
+                    console.log('Existing experience columns:', Array.from(existingExpColumns));
+                }
+                
+                renderExperiences();
+            } catch (e) {
+                console.error('Exception loading experiences:', e);
+                showToast('Error: ' + e.message, 'error');
+            }
+        }
+
+        // Render experiences list
+        function renderExperiences() {
+            const container = document.getElementById('experiencesList');
+            console.log('renderExperiences called, container:', container, 'allExperiences:', allExperiences.length);
+            
+            if (!container) {
+                console.error('experiencesList container not found!');
+                return;
+            }
+            
+            if (allExperiences.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-500">
+                        <svg class="w-12 h-12 mx-auto mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                        <p class="text-lg font-medium mb-2">No experiences yet</p>
+                        <p class="text-sm">Click "Add Entry" to create your first experience or education entry.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const normalizeType = (t) => (t || 'experience').toString().trim().toLowerCase();
+            const experiences = allExperiences.filter(item => normalizeType(item.type) === 'experience');
+            const educations = allExperiences.filter(item => normalizeType(item.type) === 'education');
+            
+            console.log('Experiences:', experiences.length, 'Educations:', educations.length);
+
+            let html = '';
+
+            // Experience Section
+            if (experiences.length > 0) {
+                html += `<div class="mb-6"><h3 class="text-sm font-semibold text-indigo-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    Work Experience (${experiences.length})
+                </h3><div class="space-y-3">`;
+                
+                for (let i = 0; i < allExperiences.length; i++) {
+                    const exp = allExperiences[i];
+                    if (normalizeType(exp.type) !== 'experience') continue;
+                    html += renderExperienceCard(exp, i);
+                }
+                html += '</div></div>';
+            }
+
+            // Education Section
+            if (educations.length > 0) {
+                html += `<div><h3 class="text-sm font-semibold text-purple-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
+                    Education (${educations.length})
+                </h3><div class="space-y-3">`;
+                
+                for (let i = 0; i < allExperiences.length; i++) {
+                    const exp = allExperiences[i];
+                    if (normalizeType(exp.type) !== 'education') continue;
+                    html += renderExperienceCard(exp, i, true);
+                }
+                html += '</div></div>';
+            }
+            
+            // If neither experiences nor educations, show all as generic entries
+            if (experiences.length === 0 && educations.length === 0) {
+                html += `<div class="mb-6"><h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">All Entries (${allExperiences.length})</h3><div class="space-y-3">`;
+                for (let i = 0; i < allExperiences.length; i++) {
+                    html += renderExperienceCard(allExperiences[i], i);
+                }
+                html += '</div></div>';
+            }
+            
+            console.log('Setting HTML, length:', html.length);
+            console.log('First 500 chars of HTML:', html.substring(0, 500));
+            container.innerHTML = html;
+            console.log('Container innerHTML set, children:', container.children.length);
+            
+            // Log the container's position and size
+            const rect = container.getBoundingClientRect();
+            console.log('Container position:', rect.top, rect.left, 'Size:', rect.width, rect.height);
+            console.log('Container parent:', container.parentElement, container.parentElement?.getBoundingClientRect());
+            
+            // Verify render after a short delay
+            setTimeout(() => {
+                console.log('After timeout - container children:', container.children.length, 'innerHTML length:', container.innerHTML.length);
+            }, 100);
+        }
+
+        // Render single experience card
+        function renderExperienceCard(exp, index, isEducation = false) {
+            // Use full class names (Tailwind CDN needs complete class names, not dynamic interpolation)
+            const bgClass = isEducation ? 'bg-purple-500/10' : 'bg-indigo-500/10';
+            const badgeBgClass = isEducation ? 'bg-purple-500/20' : 'bg-indigo-500/20';
+            const badgeTextClass = isEducation ? 'text-purple-300' : 'text-indigo-300';
+            
+            return `
+                <div class="gradient-border rounded-xl">
+                    <div class="surface-element rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                        
+                        <!-- Type Icon -->
+                        <div class="w-10 h-10 rounded-lg ${bgClass} flex items-center justify-center flex-shrink-0">
+                            ${isEducation ? 
+                                '<svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>'
+                                : '<svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>'
+                            }
+                        </div>
+
+                        <!-- Info -->
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap mb-1">
+                                <h4 class="font-semibold text-white truncate">${exp.title || 'Untitled'}</h4>
+                                <span class="px-2 py-0.5 rounded-full ${badgeBgClass} ${badgeTextClass} text-xs">${isEducation ? 'Education' : 'Experience'}</span>
+                            </div>
+                            <p class="text-sm text-gray-400">${exp.company || ''}</p>
+                            <div class="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                                <span class="font-mono">${exp.date_range || ''}</span>
+                                <span>• Order: ${exp.order || 0}</span>
+                                <span class="text-gray-600">• ID: ${exp.id}</span>
+                            </div>
+                            ${exp.description ? `<p class="text-xs text-gray-500 mt-2 line-clamp-1">${exp.description}</p>` : ''}
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex items-center gap-2">
+                            <button onclick="openEditExperienceModal(${index})" class="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Edit">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Open modal for adding new experience
+        function openAddExperienceModal() {
+            document.getElementById('expModalTitle').textContent = 'Add New Entry';
+            document.getElementById('saveExpBtnText').textContent = 'Create Entry';
+            document.getElementById('deleteExpBtn').classList.add('hidden');
+            document.getElementById('experienceForm').reset();
+            document.getElementById('expId').value = '';
+            // Reset radio to experience
+            document.querySelector('input[name="expType"][value="experience"]').checked = true;
+            document.getElementById('experienceModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Open modal for editing experience - uses array index
+        function openEditExperienceModal(index) {
+            console.log('openEditExperienceModal called with index:', index);
+            
+            const exp = allExperiences[index];
+            if (!exp) {
+                console.error('Experience not found at index:', index);
+                showToast('Experience not found', 'error');
+                return;
+            }
+
+            console.log('Editing experience:', exp);
+
+            document.getElementById('expModalTitle').textContent = 'Edit Entry';
+            document.getElementById('saveExpBtnText').textContent = 'Save Changes';
+            document.getElementById('deleteExpBtn').classList.remove('hidden');
+
+            // Populate form fields
+            document.getElementById('expId').value = exp.id;
+            document.getElementById('expTitle').value = exp.title || '';
+            document.getElementById('expCompany').value = exp.company || '';
+            document.getElementById('expDateRange').value = exp.date_range || '';
+            document.getElementById('expDescription').value = exp.description || '';
+            document.getElementById('expOrder').value = exp.order || '';
+
+            // Set type radio
+            const expType = (exp.type || 'experience').toString().trim().toLowerCase();
+            const radio = document.querySelector(`input[name="expType"][value="${expType}"]`);
+            if (radio) radio.checked = true;
+
+            // Show modal
+            document.getElementById('experienceModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Close experience modal
+        function closeExperienceModal() {
+            document.getElementById('experienceModal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        // Save experience (create or update)
+        document.getElementById('experienceForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const expId = document.getElementById('expId').value;
+            const isNew = !expId;
+
+            // Get selected type
+            const selectedType = document.querySelector('input[name="expType"]:checked')?.value || 'experience';
+
+            // Build experience data
+            const expData = {
+                title: document.getElementById('expTitle').value.trim(),
+                company: document.getElementById('expCompany').value.trim(),
+                date_range: document.getElementById('expDateRange').value.trim(),
+                type: selectedType,
+                description: document.getElementById('expDescription').value.trim() || null,
+                order: parseInt(document.getElementById('expOrder').value) || 0
+            };
+            
+            console.log('Saving experience data:', expData);
+
+            const saveBtn = document.getElementById('saveExpBtn');
+            saveBtn.disabled = true;
+            document.getElementById('saveExpBtnText').textContent = 'Saving...';
+
+            try {
+                if (isNew) {
+                    const { data, error } = await supabaseClient.from('experiences').insert([expData]).select();
+                    if (error) throw error;
+                    if (!data || data.length === 0) throw new Error('Insert returned no data. Check RLS policies.');
+                    console.log('Insert result:', data);
+                    showToast('Entry created successfully!');
+                } else {
+                    console.log('Experience ID to update:', expId);
+                    
+                    const { data, error } = await supabaseClient
+                        .from('experiences')
+                        .update(expData)
+                        .eq('id', expId)
+                        .select();
+                    
+                    console.log('Update response - data:', data, 'error:', error);
+                    
+                    if (error) {
+                        console.error('Supabase error details:', error);
+                        throw error;
+                    }
+                    
+                    if (!data || data.length === 0) {
+                        throw new Error('Update blocked. Please check Row Level Security (RLS) policies in Supabase for the experiences table.');
+                    }
+                    
+                    console.log('Updated experience:', data[0]);
+                    showToast('Entry updated successfully!');
+                }
+
+                closeExperienceModal();
+                await loadExperiences();
+            } catch (error) {
+                console.error('Error saving experience:', error);
+                showToast('Failed to save: ' + error.message, 'error');
+            } finally {
+                saveBtn.disabled = false;
+                document.getElementById('saveExpBtnText').textContent = isNew ? 'Create Entry' : 'Save Changes';
+            }
+        });
+
+        // Delete experience
+        async function deleteExperience() {
+            const expId = document.getElementById('expId').value;
+            if (!expId) return;
+
+            if (!confirm('Are you sure you want to delete this entry? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const { error } = await supabaseClient.from('experiences').delete().eq('id', expId);
+                if (error) throw error;
+
+                showToast('Entry deleted successfully');
+                closeExperienceModal();
+                await loadExperiences();
+            } catch (error) {
+                console.error('Error deleting experience:', error);
+                showToast('Failed to delete: ' + error.message, 'error');
+            }
+        }
+
+        // ===== DEMO SLOTS FUNCTIONS =====
+        let allDemoSlots = [];
+
+        async function loadDemoSlots() {
+            try {
+                const { data, error } = await supabaseClient.from('demo_slots').select('*').order('slot_time', { ascending: true });
+                if (error) throw error;
+
+                allDemoSlots = data || [];
+                document.getElementById('slotsCount').textContent = allDemoSlots.length;
+                renderDemoSlots();
+            } catch (error) {
+                console.error('Error loading demo slots:', error);
+                showToast('Failed to load slots: ' + error.message, 'error');
+            }
+        }
+
+        function renderDemoSlots() {
+            const slotsList = document.getElementById('slotsList');
+            
+            if (allDemoSlots.length === 0) {
+                slotsList.innerHTML = `
+                    <div class="text-center py-12 text-gray-400">
+                        <svg class="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <p class="text-lg font-medium">No time slots yet</p>
+                        <p class="text-sm">Click "Add Slot" to create one</p>
+                    </div>
+                `;
+                return;
+            }
+
+            slotsList.innerHTML = allDemoSlots.map((slot) => `
+                <div class="gradient-border rounded-lg">
+                    <div class="surface-element rounded-lg p-4 flex items-center justify-between hover:bg-white/[0.03] transition-colors">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-lg ${slot.is_available ? 'bg-green-500/10' : 'bg-red-500/10'} flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-5 h-5 ${slot.is_available ? 'text-green-400' : 'text-red-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-semibold text-white">${slot.slot_time}</div>
+                                    <div class="text-xs ${slot.is_available ? 'text-green-400' : 'text-red-400'} font-medium">${slot.is_available ? 'Available' : 'Unavailable'}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="toggleSlotAvailability('${slot.id}', ${!slot.is_available})" class="p-2 rounded-lg transition-colors ${slot.is_available ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400' : 'bg-red-500/20 hover:bg-red-500/30 text-red-400'}" title="${slot.is_available ? 'Mark unavailable' : 'Mark available'}">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"></path></svg>
+                            </button>
+                            <button onclick="openEditSlotModal('${slot.id}')" class="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Edit">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function toggleSlotAvailability(slotId, newStatus) {
+            try {
+                const { error } = await supabaseClient.from('demo_slots').update({ is_available: newStatus }).eq('id', slotId);
+                if (error) throw error;
+
+                showToast(newStatus ? 'Slot marked as available' : 'Slot marked as unavailable', 'success');
+                await loadDemoSlots();
+            } catch (error) {
+                console.error('Error toggling slot availability:', error);
+                showToast('Failed to update slot: ' + error.message, 'error');
+            }
+        }
+
+        function openSlotModal() {
+            document.getElementById('slotId').value = '';
+            document.getElementById('slotTime').value = '';
+            document.getElementById('slotAvailable').checked = true;
+            document.getElementById('slotModalTitle').textContent = 'Add Time Slot';
+            document.getElementById('saveSlotBtnText').textContent = 'Save Slot';
+            document.getElementById('deleteSlotBtn').classList.add('hidden');
+            document.getElementById('slotModal').classList.remove('hidden');
+            document.getElementById('slotTime').focus();
+        }
+
+        function openEditSlotModal(slotId) {
+            const slot = allDemoSlots.find(s => s.id === slotId);
+            if (!slot) return;
+
+            document.getElementById('slotId').value = slot.id;
+            document.getElementById('slotTime').value = slot.slot_time;
+            document.getElementById('slotAvailable').checked = slot.is_available;
+            document.getElementById('slotModalTitle').textContent = 'Edit Time Slot';
+            document.getElementById('saveSlotBtnText').textContent = 'Update Slot';
+            document.getElementById('deleteSlotBtn').classList.remove('hidden');
+            document.getElementById('slotModal').classList.remove('hidden');
+        }
+
+        function closeSlotModal() {
+            document.getElementById('slotModal').classList.add('hidden');
+        }
+
+        document.getElementById('slotForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const slotId = document.getElementById('slotId').value;
+            const slotTime = document.getElementById('slotTime').value.trim();
+            const isAvailable = document.getElementById('slotAvailable').checked;
+
+            if (!slotTime) {
+                showToast('Please enter a time slot', 'error');
+                return;
+            }
+
+            try {
+                if (slotId) {
+                    // Update existing
+                    const { error } = await supabaseClient.from('demo_slots').update({ slot_time: slotTime, is_available: isAvailable }).eq('id', slotId);
+                    if (error) throw error;
+                    showToast('Slot updated successfully');
+                } else {
+                    // Insert new
+                    const { error } = await supabaseClient.from('demo_slots').insert([{ slot_time: slotTime, is_available: isAvailable }]);
+                    if (error) throw error;
+                    showToast('Slot created successfully');
+                }
+
+                closeSlotModal();
+                await loadDemoSlots();
+            } catch (error) {
+                console.error('Error saving slot:', error);
+                showToast('Failed to save slot: ' + error.message, 'error');
+            }
+        });
+
+        async function deleteSlot() {
+            const slotId = document.getElementById('slotId').value;
+            if (!slotId) return;
+
+            if (!confirm('Are you sure you want to delete this slot? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const { error } = await supabaseClient.from('demo_slots').delete().eq('id', slotId);
+                if (error) throw error;
+
+                showToast('Slot deleted successfully');
+                closeSlotModal();
+                await loadDemoSlots();
+            } catch (error) {
+                console.error('Error deleting slot:', error);
+                showToast('Failed to delete slot: ' + error.message, 'error');
+            }
+        }
+
+        // Load homepage content
+        async function loadHomepageContent() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('homepage_content')
+                    .select('*')
+                    .single();
+
+                if (error) {
+                    if (error.code === 'PGRST116') {
+                        // No content exists yet, show empty form
+                        document.getElementById('homepageTitle').value = '';
+                        document.getElementById('homepageDescription').value = '';
+                        document.getElementById('homepageProfileImage').value = '';
+                    } else {
+                        throw error;
+                    }
+                } else {
+                    document.getElementById('homepageTitle').value = data.title || '';
+                    document.getElementById('homepageDescription').value = data.description || '';
+                    document.getElementById('homepageProfileImage').value = data.profile_image_url || '';
+                }
+            } catch (error) {
+                console.error('Error loading homepage content:', error);
+                showToast('Failed to load homepage content: ' + error.message, 'error');
+            }
+        }
+
+        // Save homepage content
+        document.getElementById('homepageForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('homepageTitle').value.trim();
+            const description = document.getElementById('homepageDescription').value.trim();
+            const profileImageUrl = document.getElementById('homepageProfileImage').value.trim();
+
+            if (!title || !description) {
+                showToast('Please fill in all fields', 'error');
+                return;
+            }
+
+            try {
+                // Try to get existing content
+                const { data: existing, error: selectError } = await supabaseClient
+                    .from('homepage_content')
+                    .select('id')
+                    .single();
+
+                if (existing) {
+                    // Update existing
+                    const { error } = await supabaseClient
+                        .from('homepage_content')
+                        .update({ title, description, profile_image_url: profileImageUrl, updated_at: new Date().toISOString() })
+                        .eq('id', existing.id);
+                    if (error) throw error;
+                } else {
+                    // Insert new
+                    const { error } = await supabaseClient
+                        .from('homepage_content')
+                        .insert([{ title, description, profile_image_url: profileImageUrl }]);
+                    if (error) throw error;
+                }
+
+                showToast('Homepage content saved successfully');
+            } catch (error) {
+                console.error('Error saving homepage content:', error);
+                showToast('Failed to save content: ' + error.message, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

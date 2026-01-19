@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Courses - Alex.Design</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        background: '#0f1012',
+                        surface: '#17191d',
+                        surfaceHighlight: '#1f2125',
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        'glow-pulse': {
+                            '0%, 100%': { boxShadow: '0 0 20px rgba(99, 102, 241, 0.3)' },
+                            '50%': { boxShadow: '0 0 40px rgba(99, 102, 241, 0.6)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0f1012;
+            color: #e5e7eb;
+            overflow-x: hidden;
+        }
+
+        .gradient-border {
+            position: relative;
+            background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 100%);
+            padding: 1px;
+            border-radius: 8px;
+        }
+        
+        .gradient-border.rounded-xl { border-radius: 12px; }
+        .gradient-border.rounded-full { border-radius: 9999px; }
+        .gradient-border.rounded-2xl { border-radius: 16px; }
+
+        .surface-element {
+            background: linear-gradient(180deg, #1f2125 0%, #17191d 100%);
+            box-shadow: 
+                0px 1px 0px 0px rgba(255, 255, 255, 0.08) inset, 
+                0px -1px 0px 0px rgba(0, 0, 0, 0.2) inset,
+                0px 2px 4px -1px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .surface-interactive:hover {
+            background: linear-gradient(180deg, #25282d 0%, #1e2024 100%);
+            transform: translateY(-1px);
+            box-shadow: 
+                0px 1px 0px 0px rgba(255, 255, 255, 0.1) inset, 
+                0px -1px 0px 0px rgba(0, 0, 0, 0.2) inset,
+                0px 8px 16px -4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .surface-interactive:active {
+            transform: translateY(0px);
+            background: linear-gradient(180deg, #17191d 0%, #17191d 100%);
+        }
+
+        .text-gradient {
+            background: linear-gradient(to bottom, #ffffff 0%, #9ca3af 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .course-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .course-card:hover {
+            transform: translateY(-8px);
+        }
+
+        .course-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .course-card:hover::before {
+            opacity: 1;
+        }
+
+        .video-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+        }
+
+        .video-container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 100%);
+            pointer-events: none;
+        }
+
+        .category-badge {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .category-badge::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .category-badge:hover::before {
+            left: 100%;
+        }
+
+        .text-gradient {
+            background-clip: text;
+        }
+
+        /* Auth Modal Styles */
+        .auth-modal-backdrop {
+            backdrop-filter: blur(4px);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .auth-modal-content {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { 
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* --- ULTRA MINIMALIST NAVBAR --- */
+        .navbar-container {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 50;
+            background: transparent;
+            border-bottom: none;
+            transition: all 0.3s ease;
+        }
+
+        .navbar-container.scrolled {
+            background: rgba(15, 16, 18, 0.8);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .navbar-container.navbar-hidden {
+            transform: translateY(-100%);
+        }
+
+        @media (max-width: 768px) {
+            .navbar-container {
+                transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+        }
+
+        .nav-logo {
+            font-weight: 500;
+            letter-spacing: 1px;
+            color: #ffffff;
+            transition: opacity 0.3s ease;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+
+        .nav-logo:hover {
+            opacity: 0.7;
+        }
+
+        .nav-link {
+            color: #9ca3af;
+            font-weight: 400;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+            transition: color 0.3s ease;
+            text-decoration: none;
+            text-transform: uppercase;
+        }
+
+        .nav-link:hover {
+            color: #ffffff;
+        }
+
+        .mobile-menu-btn {
+            position: relative;
+            width: 26px;
+            height: 26px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 4px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .hamburger-line {
+            width: 18px;
+            height: 1px;
+            background: #e5e7eb;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center;
+        }
+
+        .mobile-menu-btn.active .hamburger-line:nth-child(1) {
+            transform: translateY(6.5px) rotate(45deg);
+        }
+
+        .mobile-menu-btn.active .hamburger-line:nth-child(2) {
+            opacity: 0;
+            transform: translateX(8px);
+        }
+
+        .mobile-menu-btn.active .hamburger-line:nth-child(3) {
+            transform: translateY(-6.5px) rotate(-45deg);
+        }
+
+        .mobile-nav-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: rgba(15, 16, 18, 0.75);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .mobile-nav-menu.active {
+            max-height: 380px;
+        }
+
+        .mobile-nav-content {
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .mobile-nav-link {
+            color: #b4b9c1;
+            font-weight: 400;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+            padding: 6px 0;
+            transition: all 0.4s ease;
+            display: block;
+            text-decoration: none;
+            text-transform: uppercase;
+            position: relative;
+        }
+
+        .mobile-nav-link::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 0.5px;
+            background: #ffffff;
+            transition: width 0.4s ease;
+        }
+
+        .mobile-nav-link:hover {
+            color: #ffffff;
+            letter-spacing: 0.7px;
+        }
+
+        .mobile-nav-link:hover::before {
+            width: 100%;
+        }
+
+        .nav-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+            margin: 6px 0;
+        }
+
+        .cta-button {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+            padding: 8px 18px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            transition: all 0.4s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.03);
+            transition: left 0.4s ease;
+            z-index: -1;
+        }
+
+        .cta-button:hover {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.25);
+            letter-spacing: 0.7px;
+        }
+
+        .cta-button:hover::before {
+            left: 0;
+        }
+
+        /* --- SMOOTH PAGE TRANSITIONS --- */
+        body {
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .page-transition {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0f1012;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-out;
+        }
+
+        .page-transition.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-indigo-500/30">
+    <!-- Page Transition Overlay -->
+    <div class="page-transition" id="pageTransition"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar-container" id="navbar">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
+            <!-- Logo -->
+            <a href="index.html" class="nav-logo">
+                HARMAIN
+            </a>
+            
+            <!-- Desktop Menu -->
+            <div class="hidden md:flex items-center gap-10 text-sm">
+                <a href="index.html" class="nav-link">Work</a>
+                <a href="index.html#about" class="nav-link">About</a>
+                <a href="courses.html" class="nav-link">Courses</a>
+                <a href="index.html#contact" class="nav-link">Contact</a>
+            </div>
+
+            <!-- Desktop CTA Buttons -->
+            <div class="hidden md:flex items-center gap-3">
+                <button onclick="openAuthModal()" class="nav-link">Login</button>
+                <div class="gradient-border rounded-md">
+                    <button onclick="document.getElementById('contact').scrollIntoView({behavior: 'smooth'})" class="surface-element surface-interactive px-4 py-1.5 rounded-[5px] text-[10px] font-medium text-gray-200 flex items-center gap-1.5">
+                        <span>Let's Talk</span>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mobile Menu Button -->
+            <button class="mobile-menu-btn md:hidden" id="mobileMenuBtn" aria-label="Toggle menu" onclick="toggleMobileMenu()">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </button>
+        </div>
+
+        <!-- Mobile Menu -->
+        <div class="mobile-nav-menu md:hidden" id="mobileMenu">
+            <div class="mobile-nav-content">
+                <a href="index.html" class="mobile-nav-link">Home</a>
+                <a href="courses.html" class="mobile-nav-link">Courses</a>
+                <a href="index.html#about" class="mobile-nav-link">About Me</a>
+                <a href="index.html#contact" class="mobile-nav-link">Contact</a>
+                <div class="nav-divider"></div>
+                <button onclick="openAuthModal(); toggleMobileMenu();" class="mobile-nav-link">Login</button>
+                <button onclick="document.getElementById('contact').scrollIntoView({behavior: 'smooth'}); toggleMobileMenu();" class="cta-button w-full">
+                    Let's Talk
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow pt-20 sm:pt-32 px-4 sm:px-6">
+        <div class="max-w-7xl mx-auto">
+
+            <!-- Back to Home Button -->
+            <div class="mb-8 sm:mb-12">
+                <a href="index.html" class="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors group">
+                    <svg class="w-4 h-4 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                    <span>Back to Home</span>
+                </a>
+            </div>
+
+            <!-- Hero Section -->
+            <div class="mb-16 sm:mb-24">
+                <!-- Gradient Background Orb -->
+                <div class="absolute top-32 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl -z-10 pointer-events-none"></div>
+                <div class="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl -z-10 pointer-events-none"></div>
+
+                <div class="text-center mb-12 relative z-10">
+                    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 mb-6">
+                        <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+                        <span class="text-xs sm:text-sm font-medium text-indigo-300">Complete Learning Library</span>
+                    </div>
+                    <h1 class="text-4xl sm:text-5xl md:text-6xl font-bold mb-6 tracking-tight text-white">
+                        Expand Your <span class="text-gradient">Creative Skills</span>
+                    </h1>
+                    <p class="text-base sm:text-lg text-gray-400 max-w-3xl mx-auto leading-relaxed">
+                        Discover our comprehensive collection of design and development courses. From beginner fundamentals to advanced techniques, find the perfect course to level up your expertise.
+                    </p>
+                </div>
+
+                <!-- Stats Section -->
+                <div class="grid grid-cols-3 gap-4 sm:gap-6 max-w-2xl mx-auto mt-12">
+                    <div class="gradient-border rounded-xl">
+                        <div class="surface-element rounded-xl p-4 sm:p-6 text-center">
+                            <div class="text-2xl sm:text-3xl font-bold text-indigo-400 mb-2">6+</div>
+                            <div class="text-xs sm:text-sm text-gray-400">Courses</div>
+                        </div>
+                    </div>
+                    <div class="gradient-border rounded-xl">
+                        <div class="surface-element rounded-xl p-4 sm:p-6 text-center">
+                            <div class="text-2xl sm:text-3xl font-bold text-purple-400 mb-2">100h+</div>
+                            <div class="text-xs sm:text-sm text-gray-400">Content</div>
+                        </div>
+                    </div>
+                    <div class="gradient-border rounded-xl">
+                        <div class="surface-element rounded-xl p-4 sm:p-6 text-center">
+                            <div class="text-2xl sm:text-3xl font-bold text-pink-400 mb-2">Expert</div>
+                            <div class="text-xs sm:text-sm text-gray-400">Instructors</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Courses Grid -->
+            <div class="mb-20">
+                <div class="mb-8 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-2xl sm:text-3xl font-bold text-white mb-2">All Courses</h2>
+                        <p class="text-sm text-gray-400">Pick a course and start learning today</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8" id="coursesGrid">
+                    <!-- Courses will be loaded here by JavaScript -->
+                </div>
+            </div>
+
+                <!-- Course 1 -->
+                <!-- (Removed - courses now loaded dynamically from Supabase) -->
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Simple Footer -->
+    <footer class="border-t border-white/5 py-8 sm:py-12 px-4 sm:px-6 text-center text-xs sm:text-sm text-gray-600">
+        <p>&copy; 2026 HARMAIN. ALL RIGHTS RESERVED.</p>
+    </footer>
+
+    <script>
+        // Supabase client setup
+        const supabaseUrl = 'https://qwnwudtlbvdpjhadyfjz.supabase.co';
+        const supabaseAnonKey = 'sb_publishable_YhBUs4y6-nXwZxxzuUjWiw_E7lPZLR8';
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+        // Color map for badges and categories
+        const colorMap = {
+            'Accent': { badge: 'indigo', category: 'indigo' },
+            'Language': { badge: 'purple', category: 'purple' },
+            'Science': { badge: 'green', category: 'green' },
+            'Grammar ': { badge: 'orange', category: 'orange' },
+            'Writing': { badge: 'pink', category: 'pink' },
+            'Others': { badge: 'cyan', category: 'cyan' }
+        };
+
+        // Default video disabled to respect "no video"
+        const DEFAULT_VIDEO_URL = '';
+
+        function extractVideoUrl(course) {
+            if (!course) return '';
+            const candidateKeys = [
+                'video_url', 'preview_url', 'video', 'videoLink', 'video_link',
+                'vimeo_url', 'youtube_url', 'videoUrl', 'previewUrl', 'videoURL',
+                'video_embed', 'embed', 'iframe', 'videoIframe', 'video_iframe'
+            ];
+
+            for (const key of candidateKeys) {
+                const val = course[key];
+                if (typeof val === 'string' && val.trim()) return val.trim();
+            }
+
+            const firstUrl = Object.values(course).find(val =>
+                typeof val === 'string' && (val.includes('<iframe') || /(youtube\.com|youtu\.be|vimeo\.com|player\.vimeo\.com)/i.test(val))
+            );
+            if (typeof firstUrl === 'string' && firstUrl.trim()) return firstUrl.trim();
+
+            // No video found
+            return '';
+        }
+
+        function buildPreview(course) {
+            const raw = extractVideoUrl(course);
+            const url = (raw || '').trim();
+            const imageUrl = (course?.image_url || '').trim();
+
+            if (url) {
+                // Direct iframe stored
+                if (url.toLowerCase().includes('<iframe')) {
+                    return { type: 'video', html: url };
+                }
+
+                // Normalize common share links
+                let safeUrl = url;
+                if (safeUrl.includes('youtube.com/watch')) {
+                    safeUrl = safeUrl.replace('watch?v=', 'embed/');
+                } else if (safeUrl.includes('youtu.be/')) {
+                    safeUrl = safeUrl.replace('youtu.be/', 'www.youtube.com/embed/');
+                } else if (safeUrl.includes('vimeo.com/')) {
+                    const match = safeUrl.match(/vimeo\.com\/([0-9]+)/);
+                    if (match && match[1]) {
+                        safeUrl = `https://player.vimeo.com/video/${match[1]}`;
+                    }
+                }
+
+                // MP4 direct link support
+                if (safeUrl.match(/\.mp4($|\?)/)) {
+                    return {
+                        type: 'video',
+                        html: `<video class="w-full h-full rounded-xl" controls><source src="${safeUrl}" type="video/mp4" />Your browser does not support the video tag.</video>`
+                    };
+                }
+
+                return {
+                    type: 'video',
+                    html: `<iframe src="${safeUrl}" frameborder="0" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" referrerpolicy="strict-origin-when-cross-origin" style="position:absolute;top:0;left:0;width:100%;height:100%;" title="course video"></iframe>`
+                };
+            }
+
+            if (imageUrl) {
+                return {
+                    type: 'image',
+                    html: `<img src="${imageUrl}" alt="${course?.title || 'Course image'}" class="w-full h-full object-cover rounded-xl" loading="lazy">`
+                };
+            }
+
+            return { type: 'none', html: '' };
+        }
+
+        async function loadCourses() {
+            const { data, error } = await supabaseClient
+                .from('courses')
+                .select('*')
+                .order('order', { ascending: true });
+
+            if (error) {
+                console.error('Error loading courses:', error);
+                return;
+            }
+
+            const coursesGrid = document.getElementById('coursesGrid');
+            coursesGrid.innerHTML = ''; // Clear
+
+            data.forEach(course => {
+                const colors = colorMap[course.category] || { badge: 'indigo', category: 'indigo' };
+                const badgeColor = colors.badge;
+
+                const preview = buildPreview(course);
+
+                const courseHTML = `
+                    <div class="gradient-border rounded-2xl course-card">
+                        <div class="surface-element rounded-2xl p-6 h-full flex flex-col">
+                            ${preview.type === 'video' ? `
+                            <div class="video-container aspect-video rounded-xl overflow-hidden mb-6 relative">
+                                <div style="padding:56.25% 0 0 0;position:relative;width:100%;">${preview.html}</div>
+                            </div>` : preview.type === 'image' ? `
+                            <div class="video-container aspect-video rounded-xl overflow-hidden mb-6 relative">
+                                ${preview.html}
+                            </div>` : ''}
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-${badgeColor}-500/10 border border-${badgeColor}-500/20 text-${badgeColor}-400 text-[10px] font-medium category-badge">
+                                    <span class="w-1 h-1 rounded-full bg-${badgeColor}-400"></span>
+                                    ${course.badge}
+                                </div>
+                                <span class="text-xs font-mono text-gray-500">${course.category}</span>
+                            </div>
+                            <h3 class="text-xl font-bold text-white mb-2 tracking-tight">${course.title}</h3>
+                            <p class="text-sm text-gray-400 leading-relaxed mb-6 flex-grow">
+                                ${course.description}
+                            </p>
+                            <div class="flex items-center justify-between pt-6 border-t border-white/5">
+                                <span class="text-xs text-gray-500">${course.difficulty}</span>
+                                <div class="gradient-border inline-block rounded-lg">
+                                    <a href="course.html?id=${course.id}" class="surface-element surface-interactive px-4 py-2 rounded-lg text-xs font-medium text-gray-200 flex items-center gap-2 group/btn relative overflow-hidden">
+                                        <span>Know More</span>
+                                        <svg class="w-3 h-3 text-gray-400 group-hover/btn:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                coursesGrid.innerHTML += courseHTML;
+            });
+        }
+
+        // Smooth page transitions
+        function smoothNavigate(url) {
+            const transition = document.getElementById('pageTransition');
+            transition.classList.add('active');
+            setTimeout(() => {
+                window.location.href = url;
+            }, 300);
+        }
+
+        // Add smooth transitions to all internal links
+        document.addEventListener('DOMContentLoaded', () => {
+            const links = document.querySelectorAll('a[href^="index.html"], a[href^="course.html"], a[href^="courses.html"]');
+            links.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    const href = link.getAttribute('href');
+                    // Skip if it's a hash link or external
+                    if (!href || href.startsWith('#') || href.startsWith('http')) return;
+                    
+                    e.preventDefault();
+                    smoothNavigate(href);
+                });
+            });
+        });
+
+        // Toggle mobile menu
+        function toggleMobileMenu() {
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
+            mobileMenuBtn?.classList.toggle('active');
+            mobileMenu?.classList.toggle('active');
+        }
+
+        // Close mobile menu when link is clicked
+        document.addEventListener('click', (e) => {
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
+            
+            if (mobileMenu?.classList.contains('active') && 
+                !mobileMenuBtn?.contains(e.target) && 
+                !mobileMenu?.contains(e.target)) {
+                mobileMenuBtn?.classList.remove('active');
+                mobileMenu?.classList.remove('active');
+            }
+        });
+
+        // Navbar scroll effect with hide/show on mobile
+        let lastScrollY = 0;
+        let isScrolling = false;
+
+        window.addEventListener('scroll', () => {
+            const navbar = document.getElementById('navbar');
+            const currentScrollY = window.scrollY;
+            const isMobile = window.innerWidth <= 768;
+
+            // Add scrolled class for styling
+            if (currentScrollY > 10) {
+                navbar?.classList.add('scrolled');
+            } else {
+                navbar?.classList.remove('scrolled');
+            }
+
+            // Mobile hide/show logic
+            if (isMobile) {
+                if (currentScrollY > lastScrollY && currentScrollY > 50) {
+                    // Scrolling down - hide navbar
+                    if (!navbar?.classList.contains('navbar-hidden')) {
+                        navbar?.classList.add('navbar-hidden');
+                    }
+                } else if (currentScrollY < lastScrollY) {
+                    // Scrolling up - show navbar
+                    navbar?.classList.remove('navbar-hidden');
+                }
+            } else {
+                // Desktop - always show navbar
+                navbar?.classList.remove('navbar-hidden');
+            }
+
+            lastScrollY = currentScrollY;
+        });
+
+        // Load courses on page load
+        document.addEventListener('DOMContentLoaded', loadCourses);
+
+        // Auth Modal Functions
+        function openAuthModal() {
+            document.getElementById('authModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeAuthModal() {
+            document.getElementById('authModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        function toggleAuthForm(formType) {
+            const signinForm = document.getElementById('signinForm');
+            const signupForm = document.getElementById('signupForm');
+            const signinTab = document.getElementById('signinTab');
+            const signupTab = document.getElementById('signupTab');
+
+            if (formType === 'signin') {
+                signinForm.classList.remove('hidden');
+                signupForm.classList.add('hidden');
+                signinTab.classList.add('border-b-2', 'border-indigo-400', 'text-white');
+                signinTab.classList.remove('text-gray-400');
+                signupTab.classList.remove('border-b-2', 'border-indigo-400', 'text-white');
+                signupTab.classList.add('text-gray-400');
+            } else {
+                signinForm.classList.add('hidden');
+                signupForm.classList.remove('hidden');
+                signupTab.classList.add('border-b-2', 'border-indigo-400', 'text-white');
+                signupTab.classList.remove('text-gray-400');
+                signinTab.classList.remove('border-b-2', 'border-indigo-400', 'text-white');
+                signinTab.classList.add('text-gray-400');
+            }
+        }
+
+        async function handleSignIn(event) {
+            event.preventDefault();
+            const email = event.target.querySelector('input[type="email"]').value;
+            const password = event.target.querySelector('input[type="password"]').value;
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+            
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+            
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email,
+                    password
+                });
+                
+                if (error) throw error;
+                
+                // Success
+                closeAuthModal();
+                showNotification('Welcome back! You are now signed in.', 'success');
+                updateUIForUser(data.user);
+            } catch (error) {
+                console.error('Sign in error:', error);
+                showNotification(error.message || 'Failed to sign in. Please check your credentials.', 'error');
+            } finally {
+                // Reset button
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Sign In';
+            }
+        }
+
+        async function handleSignUp(event) {
+            event.preventDefault();
+            const form = event.target;
+            const fullName = form.querySelector('input[type="text"]').value;
+            const email = form.querySelectorAll('input[type="email"]')[0].value;
+            const password = form.querySelector('input[type="password"]').value;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+            
+            try {
+                const { data, error } = await supabaseClient.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: {
+                            full_name: fullName
+                        }
+                    }
+                });
+                
+                if (error) throw error;
+                
+                // Success
+                closeAuthModal();
+                showNotification('Account created! Please check your email to verify your account.', 'success');
+            } catch (error) {
+                console.error('Sign up error:', error);
+                showNotification(error.message || 'Failed to create account. Please try again.', 'error');
+            } finally {
+                // Reset button
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Create Account';
+            }
+        }
+        
+        // Notification system
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-[60] max-w-md gradient-border rounded-lg transform translate-x-0 transition-all duration-300`;
+            
+            const bgColor = type === 'success' ? 'bg-green-500/10' : type === 'error' ? 'bg-red-500/10' : 'bg-indigo-500/10';
+            const textColor = type === 'success' ? 'text-green-400' : type === 'error' ? 'text-red-400' : 'text-indigo-400';
+            
+            notification.innerHTML = `
+                <div class="surface-element rounded-lg p-4 ${bgColor}">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 ${textColor} flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            ${type === 'success' ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>' : type === 'error' ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>' : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>'}
+                        </svg>
+                        <p class="text-sm text-white flex-1">${message}</p>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                notification.style.transform = 'translateX(150%)';
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+        
+        // Update UI when user is logged in
+        function updateUIForUser(user) {
+            if (!user) return;
+            
+            const loginBtn = document.querySelector('button[onclick="openAuthModal()"]');
+            if (loginBtn) {
+                const userName = user.user_metadata?.full_name || user.email.split('@')[0];
+                const userEmail = user.email;
+                
+                // Replace login button with profile menu
+                const profileContainer = document.createElement('div');
+                profileContainer.className = 'relative';
+                profileContainer.id = 'profileContainer';
+                profileContainer.innerHTML = `
+                    <button onclick="toggleProfileMenu()" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
+                            ${userName.charAt(0).toUpperCase()}
+                        </div>
+                        <span class="hidden sm:inline text-white">${userName}</span>
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    
+                    <!-- Profile Dropdown -->
+                    <div id="profileDropdown" class="hidden absolute right-0 mt-2 w-64 gradient-border rounded-xl z-50">
+                        <div class="surface-element rounded-xl p-4">
+                            <div class="flex items-start gap-3 pb-4 border-b border-white/10">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                                    ${userName.charAt(0).toUpperCase()}
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-white font-medium text-sm truncate">${userName}</p>
+                                    <p class="text-gray-400 text-xs truncate">${userEmail}</p>
+                                </div>
+                            </div>
+                            <a href="admin.html" class="block w-full mt-4 gradient-border rounded-lg group">
+                                <div class="surface-element surface-interactive p-3 rounded-lg text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors flex items-center justify-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    Admin Panel
+                                </div>
+                            </a>
+                            <button onclick="handleLogout()" class="w-full mt-2 gradient-border rounded-lg group">
+                                <div class="surface-element surface-interactive p-3 rounded-lg text-sm font-medium text-red-400 hover:text-red-300 transition-colors flex items-center justify-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                                    Logout
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                loginBtn.parentNode.replaceChild(profileContainer, loginBtn);
+            }
+        }
+        
+        // Toggle profile dropdown
+        function toggleProfileMenu() {
+            const dropdown = document.getElementById('profileDropdown');
+            dropdown.classList.toggle('hidden');
+        }
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const profileContainer = document.getElementById('profileContainer');
+            if (profileContainer && !profileContainer.contains(e.target)) {
+                const dropdown = document.getElementById('profileDropdown');
+                if (dropdown) dropdown.classList.add('hidden');
+            }
+        });
+        
+        // Logout function
+        async function handleLogout() {
+            try {
+                const { error } = await supabaseClient.auth.signOut();
+                if (error) throw error;
+                
+                showNotification('Logged out successfully', 'success');
+                
+                // Reload page to reset UI
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } catch (error) {
+                console.error('Logout error:', error);
+                showNotification('Failed to logout. Please try again.', 'error');
+            }
+        }
+        
+        // Check for existing session on page load
+        async function checkSession() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session?.user) {
+                    updateUIForUser(session.user);
+                }
+            } catch (error) {
+                console.error('Session check error:', error);
+            }
+        }
+        
+        // Initialize session check
+        checkSession();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const authModal = document.getElementById('authModal');
+            if (authModal) {
+                authModal.addEventListener('click', (e) => {
+                    if (e.target === authModal) closeAuthModal();
+                });
+            }
+        });
+    </script>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 auth-modal-backdrop bg-black/40">
+        <div class="auth-modal-content w-full max-w-md">
+            <div class="gradient-border rounded-2xl">
+                <div class="surface-element rounded-2xl p-8 relative">
+                    <!-- Close Button -->
+                    <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+
+                    <!-- Header -->
+                    <div class="text-center mb-8">
+                        <h2 class="text-2xl font-bold text-white mb-2">Welcome Back</h2>
+                        <p class="text-sm text-gray-400">Sign in or create an account to continue</p>
+                    </div>
+
+                    <!-- Tabs -->
+                    <div class="flex gap-8 border-b border-white/10 mb-8">
+                        <button id="signinTab" onclick="toggleAuthForm('signin')" class="pb-3 text-sm font-medium text-white border-b-2 border-indigo-400 transition-colors">Sign In</button>
+                        <button id="signupTab" onclick="toggleAuthForm('signup')" class="pb-3 text-sm font-medium text-gray-400 hover:text-white transition-colors">Sign Up</button>
+                    </div>
+
+                    <!-- Sign In Form -->
+                    <form id="signinForm" class="space-y-4" onsubmit="handleSignIn(event)">
+                        <div>
+                            <label class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Email</label>
+                            <div class="gradient-border rounded-lg">
+                                <input type="email" required class="w-full bg-[#0f1012] text-gray-200 text-sm p-3 rounded-lg border-none focus:ring-0 placeholder-gray-600" placeholder="you@example.com">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Password</label>
+                            <div class="gradient-border rounded-lg">
+                                <input type="password" required class="w-full bg-[#0f1012] text-gray-200 text-sm p-3 rounded-lg border-none focus:ring-0 placeholder-gray-600" placeholder="••••••••">
+                            </div>
+                        </div>
+                        <div class="gradient-border rounded-lg">
+                            <button type="submit" class="w-full surface-element surface-interactive p-3 rounded-lg text-sm font-medium text-white flex items-center justify-center gap-2 group">
+                                <span>Sign In</span>
+                                <svg class="w-4 h-4 text-gray-300 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Sign Up Form -->
+                    <form id="signupForm" class="hidden space-y-4" onsubmit="handleSignUp(event)">
+                        <div>
+                            <label class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Full Name</label>
+                            <div class="gradient-border rounded-lg">
+                                <input type="text" required class="w-full bg-[#0f1012] text-gray-200 text-sm p-3 rounded-lg border-none focus:ring-0 placeholder-gray-600" placeholder="Jane Doe">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Email</label>
+                            <div class="gradient-border rounded-lg">
+                                <input type="email" required class="w-full bg-[#0f1012] text-gray-200 text-sm p-3 rounded-lg border-none focus:ring-0 placeholder-gray-600" placeholder="you@example.com">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Password</label>
+                            <div class="gradient-border rounded-lg">
+                                <input type="password" required class="w-full bg-[#0f1012] text-gray-200 text-sm p-3 rounded-lg border-none focus:ring-0 placeholder-gray-600" placeholder="••••••••">
+                            </div>
+                        </div>
+                        <div class="gradient-border rounded-lg">
+                            <button type="submit" class="w-full surface-element surface-interactive p-3 rounded-lg text-sm font-medium text-white flex items-center justify-center gap-2 group">
+                                <span>Create Account</span>
+                                <svg class="w-4 h-4 text-gray-300 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

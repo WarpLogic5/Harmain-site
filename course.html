@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Details</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        background: '#0f1012',
+                        surface: '#17191d',
+                        surfaceHighlight: '#1f2125',
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'glow': 'glow 3s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        glow: {
+                            '0%, 100%': { opacity: 0.5 },
+                            '50%': { opacity: 1 },
+                        }
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        body {
+            background-color: #0f1012;
+            color: #e5e7eb;
+            overflow-x: hidden;
+        }
+        
+        /* Glassmorphism & Borders */
+        .gradient-border {
+            position: relative;
+            background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 100%);
+            padding: 1px;
+            border-radius: 16px;
+        }
+        
+        .surface-element {
+            background: linear-gradient(180deg, #1f2125 0%, #17191d 100%);
+            box-shadow: 
+                0px 1px 0px 0px rgba(255, 255, 255, 0.08) inset, 
+                0px -1px 0px 0px rgba(0, 0, 0, 0.2) inset,
+                0px 4px 24px -1px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .surface-interactive:hover {
+            background: linear-gradient(180deg, #25282d 0%, #1e2024 100%);
+            transform: translateY(-2px);
+            box-shadow: 
+                0px 1px 0px 0px rgba(255, 255, 255, 0.1) inset, 
+                0px -1px 0px 0px rgba(0, 0, 0, 0.2) inset,
+                0px 12px 24px -4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .surface-interactive:active {
+            transform: translateY(0px);
+        }
+
+        /* Typography */
+        .text-gradient {
+            background: linear-gradient(to right, #ffffff, #9ca3af);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .section-title {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .section-title::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: -8px;
+            width: 40px;
+            height: 2px;
+            background: linear-gradient(90deg, #6366f1, transparent);
+        }
+
+        /* Custom List Bullets */
+        .custom-list li {
+            position: relative;
+            padding-left: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .custom-list li::before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #818cf8;
+            font-weight: bold;
+        }
+
+        /* Ambient Glow */
+        .ambient-glow {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, rgba(0,0,0,0) 70%);
+            top: -200px;
+            right: -200px;
+            pointer-events: none;
+            z-index: 0;
+            animation: glow 8s ease-in-out infinite alternate;
+        }
+
+        .video-wrapper::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+            pointer-events: none;
+            border-radius: 12px;
+        }
+
+        /* Form Styling */
+        input, select, textarea {
+            transition: all 0.2s ease;
+        }
+        input:focus, select:focus, textarea:focus {
+            background-color: #1a1c20;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+
+        /* Navigation Styles */
+        .navbar-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: transparent;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .navbar-container.scrolled {
+            background: rgba(15, 16, 18, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .navbar-container.navbar-hidden {
+            transform: translateY(-100%);
+        }
+
+        .nav-logo {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: white;
+            transition: opacity 0.2s;
+        }
+
+        .nav-logo:hover {
+            opacity: 0.8;
+        }
+
+        .nav-link {
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: rgba(156, 163, 175, 1);
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover {
+            color: white;
+        }
+
+        /* Mobile Menu */
+        .mobile-menu-btn {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 8px;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .hamburger-line {
+            width: 20px;
+            height: 2px;
+            background: white;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .mobile-menu-btn.active .hamburger-line:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+
+        .mobile-menu-btn.active .hamburger-line:nth-child(2) {
+            opacity: 0;
+        }
+
+        .mobile-menu-btn.active .hamburger-line:nth-child(3) {
+            transform: rotate(-45deg) translate(5px, -5px);
+        }
+
+        .mobile-nav-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: rgba(15, 16, 18, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .mobile-nav-menu.active {
+            max-height: 500px;
+        }
+
+        .mobile-nav-content {
+            padding: 1.5rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .mobile-nav-link {
+            padding: 0.75rem 1rem;
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: rgba(156, 163, 175, 1);
+            transition: all 0.2s;
+            border-radius: 0.5rem;
+            text-align: left;
+            background: none;
+            border: none;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .mobile-nav-link:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .nav-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.05);
+            margin: 0.5rem 0;
+        }
+
+        .cta-button {
+            padding: 0.75rem 1rem;
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            background: linear-gradient(180deg, #1f2125 0%, #17191d 100%);
+            color: rgba(229, 231, 235, 1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .cta-button:hover {
+            background: linear-gradient(180deg, #25282d 0%, #1e2024 100%);
+            transform: translateY(-1px);
+        }
+
+        /* Page Transition */
+        .page-transition {
+            position: fixed;
+            inset: 0;
+            background: #0f1012;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .page-transition.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        body {
+            animation: fadeIn 0.4s ease-in-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-indigo-500/30">
+    <!-- Page Transition Overlay -->
+    <div class="page-transition" id="pageTransition"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar-container" id="navbar">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
+            <!-- Logo -->
+            <a href="index.html" class="nav-logo">
+                HARMAIN
+            </a>
+            
+            <!-- Desktop Menu -->
+            <div class="hidden md:flex items-center gap-10 text-sm">
+                <a href="index.html" class="nav-link">Work</a>
+                <a href="index.html#about" class="nav-link">About</a>
+                <a href="courses.html" class="nav-link">Courses</a>
+                <a href="index.html#contact" class="nav-link">Contact</a>
+            </div>
+
+            <!-- Desktop CTA Buttons -->
+            <div class="hidden md:flex items-center gap-3">
+                <button onclick="openAuthModal()" class="nav-link">Login</button>
+                <div class="gradient-border rounded-md">
+                    <a href="index.html#contact" class="surface-element surface-interactive px-4 py-1.5 rounded-[5px] text-[10px] font-medium text-gray-200 flex items-center gap-1.5">
+                        <span>Let's Talk</span>
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Mobile Menu Button -->
+            <button class="mobile-menu-btn md:hidden" id="mobileMenuBtn" aria-label="Toggle menu" onclick="toggleMobileMenu()">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </button>
+        </div>
+
+        <!-- Mobile Menu -->
+        <div class="mobile-nav-menu md:hidden" id="mobileMenu">
+            <div class="mobile-nav-content">
+                <a href="index.html" class="mobile-nav-link">Home</a>
+                <a href="courses.html" class="mobile-nav-link">Courses</a>
+                <a href="index.html#about" class="mobile-nav-link">About Me</a>
+                <a href="index.html#contact" class="mobile-nav-link">Contact</a>
+                <div class="nav-divider"></div>
+                <button onclick="openAuthModal(); toggleMobileMenu();" class="mobile-nav-link">Login</button>
+                <a href="index.html#contact" onclick="toggleMobileMenu();" class="cta-button">
+                    Let's Talk
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow pt-20 sm:pt-32 pb-24 px-4 sm:px-6 relative overflow-hidden">
+        <!-- Background Ambient Glow -->
+        <div class="ambient-glow"></div>
+        <div class="absolute top-[20%] left-[-10%] w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="max-w-7xl mx-auto space-y-16 relative z-10">
+            
+            <!-- Hero Section -->
+            <div class="relative">
+                <!-- Dedicated Hero Background Mesh (Subtle Monochrome) -->
+                <div class="absolute -top-40 -left-40 w-[800px] h-[800px] bg-white/5 rounded-full blur-[120px] -z-10 animate-pulse" style="animation-duration: 10s;"></div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+                    
+                    <!-- Left Content -->
+                    <div class="lg:col-span-7 space-y-10 pt-4">
+                        <div class="space-y-8">
+                            <div class="flex items-center gap-3 flex-wrap animate-float">
+                                <span id="courseBadge" class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs font-semibold uppercase tracking-wider backdrop-blur-md">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse"></span>
+                                    Loading
+                                </span>
+                                <span id="courseCategory" class="px-3 py-1 rounded-full border border-white/10 text-xs text-gray-400 font-mono bg-white/5 backdrop-blur-md"></span>
+                                <span id="courseDifficulty" class="px-3 py-1 rounded-full border border-white/10 text-xs text-gray-400 font-mono bg-white/5 backdrop-blur-md"></span>
+                            </div>
+                            
+                            <h1 id="courseTitle" class="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-500 tracking-tight leading-[1.1]">
+                                Loading course...
+                            </h1>
+                            
+                            <div class="flex gap-6">
+                                <div class="w-1 self-stretch bg-gradient-to-b from-gray-700 to-gray-900 rounded-full"></div>
+                                <p id="courseDescription" class="text-lg sm:text-xl text-gray-500 leading-relaxed max-w-2xl font-light">
+                                    Fetching details from the server to bring you standard-setting design education.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-6">
+                            <!-- Primary Action (Monochrome Style) -->
+                            <div class="gradient-border rounded-full">
+                                <button onclick="document.getElementById('demoSection').scrollIntoView({behavior: 'smooth'})" class="surface-element surface-interactive px-8 py-4 rounded-full text-white font-medium flex items-center gap-3 group relative overflow-hidden">
+                                    <div class="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out"></div>
+                                    <span class="relative flex items-center gap-2">
+                                        Book a Demo
+                                        <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                                    </span>
+                                </button>
+                            </div>
+
+                            <a href="courses.html" class="group px-6 py-4 text-gray-500 hover:text-white font-medium transition-colors flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
+                                    <svg class="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                                </div>
+                                Back to Library
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Right Video -->
+                    <div class="lg:col-span-5 relative">
+                        <!-- Subtle Silver Backlight -->
+                        <div class="absolute -inset-4 bg-white/5 rounded-2xl blur-3xl opacity-20"></div>
+                        <div id="videoWrapper" class="gradient-border rounded-2xl group transform transition-all duration-500 hover:scale-[1.02] hover:-rotate-1">
+                            <div class="surface-element rounded-2xl p-2 relative bg-[#0a0a0c]/80 backdrop-blur-xl">
+                                <div id="videoContainer" class="relative w-full overflow-hidden rounded-xl bg-[#0a0a0c] aspect-video flex items-center justify-center text-gray-500 text-sm shadow-2xl video-wrapper z-10 border border-white/5">
+                                    <div class="flex flex-col items-center gap-3">
+                                        <svg class="w-8 h-8 text-gray-600 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                        <span>Loading preview...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 pt-12 border-t border-white/5">
+                
+                <!-- Main Info -->
+                <div class="lg:col-span-2 space-y-8">
+                    <div class="gradient-border rounded-2xl">
+                        <div class="surface-element rounded-2xl p-8 sm:p-10 space-y-8">
+                            <div>
+                                <h2 class="text-2xl font-bold text-white mb-6 section-title">About this course</h2>
+                                <p id="courseLong" class="text-base text-gray-400 leading-8">Detailed course information loading...</p>
+                            </div>
+                            
+                            <div>
+                                <h3 class="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                                    <span class="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center text-green-400">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    </span>
+                                    What you'll learn
+                                </h3>
+                                <div class="bg-[#0f1012]/50 rounded-xl p-6 border border-white/5">
+                                    <ul id="highlights" class="custom-list space-y-3 text-gray-300"></ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar Info & Share -->
+                <div class="space-y-6">
+                    <!-- Quick Info Card -->
+                    <div class="gradient-border rounded-2xl sticky top-24">
+                        <div class="surface-element rounded-2xl p-6 sm:p-8 space-y-6">
+                            <div>
+                                <div class="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    Course Details
+                                </div>
+                                <div class="space-y-4 text-sm text-gray-300" id="quickInfo"></div>
+                            </div>
+                            
+                            <div class="border-t border-white/5 pt-6">
+                                <div class="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-3">Share Course</div>
+                                <button id="shareBtn" class="w-full flex items-center justify-center gap-2 p-3 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all border border-white/5 active:scale-95">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                    Copy Link
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Demo Section -->
+            <section id="demoSection" class="relative">
+                <div class="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 rounded-3xl blur-3xl -z-10"></div>
+                <div class="gradient-border rounded-3xl">
+                    <div class="surface-element rounded-3xl p-8 sm:p-12 lg:p-16 space-y-10">
+                        <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                            <div class="max-w-2xl">
+                                <p class="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-2">Private Session</p>
+                                <h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">Book a Live Demo</h2>
+                                <p class="text-gray-400 text-lg">
+                                    Interested in <span id="demoCourseName" class="text-white font-semibold">this course</span>? 
+                                    Schedule a 1-on-1 walkthrough with our instructors.
+                                </p>
+                            </div>
+                        </div>
+
+                        <form id="demoForm" class="grid grid-cols-1 lg:grid-cols-2 gap-8" novalidate>
+                            <div class="space-y-5">
+                                <div class="space-y-2">
+                                    <label class="text-xs font-semibold text-gray-500 uppercase ml-1">Contact Info</label>
+                                    <div class="gradient-border rounded-xl">
+                                        <input id="phone" type="text" required placeholder="Phone number" class="w-full bg-[#0f1012] text-gray-200 text-sm p-4 rounded-xl border-none focus:ring-0 placeholder-gray-600">
+                                    </div>
+                                    <div class="gradient-border rounded-xl">
+                                        <input id="email" type="email" required placeholder="Email address" class="w-full bg-[#0f1012] text-gray-200 text-sm p-4 rounded-xl border-none focus:ring-0 placeholder-gray-600">
+                                    </div>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-xs font-semibold text-gray-500 uppercase ml-1">Message</label>
+                                    <div class="gradient-border rounded-xl h-full">
+                                        <textarea id="message" rows="5" required placeholder="What specific topics would you like to cover?" class="w-full h-full bg-[#0f1012] text-gray-200 text-sm p-4 rounded-xl border-none focus:ring-0 placeholder-gray-600 resize-none"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex flex-col justify-between space-y-6">
+                                <div class="space-y-2">
+                                    <label class="text-xs font-semibold text-gray-500 uppercase ml-1">Preferred Timing (IST)</label>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div class="gradient-border rounded-xl">
+                                            <select id="demoDate" class="w-full bg-[#0f1012] text-gray-200 text-sm p-4 rounded-xl border-none focus:ring-0 cursor-pointer">
+                                                <option value="" selected>Date</option>
+                                            </select>
+                                        </div>
+                                        <div class="gradient-border rounded-xl">
+                                            <select id="demoTime" class="w-full bg-[#0f1012] text-gray-200 text-sm p-4 rounded-xl border-none focus:ring-0 cursor-pointer">
+                                                <option value="" selected>Time</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-gray-500 ml-1 mt-2 flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                        Slots update in real-time based on availability.
+                                    </p>
+                                </div>
+
+                                <div class="gradient-border rounded-xl">
+                                    <button id="submitDemo" type="submit" class="w-full surface-element surface-interactive p-4 rounded-xl text-base font-bold text-white flex items-center justify-center gap-3 transition-all hover:brightness-110">
+                                        <span id="submitLabel">Confirm Booking</span>
+                                        <svg id="submitSpinner" class="hidden animate-spin h-5 w-5 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                        <svg id="submitArrow" class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="border-t border-white/5 bg-[#0a0a0c]">
+        <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 text-center">
+            <p class="text-sm text-gray-600 mb-4">&copy; 2024 Alex.Design. All rights reserved.</p>
+            <div class="flex justify-center gap-6 text-xs text-gray-700">
+                <a href="#" class="hover:text-gray-500 transition-colors">Privacy Policy</a>
+                <a href="#" class="hover:text-gray-500 transition-colors">Terms of Service</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- LOGIC -->
+    <script>
+        const supabaseUrl = 'https://qwnwudtlbvdpjhadyfjz.supabase.co';
+        const supabaseAnonKey = 'sb_publishable_YhBUs4y6-nXwZxxzuUjWiw_E7lPZLR8';
+        const supabaseClient = supabase.createClient(supabaseUrl, supabaseAnonKey);
+        const courseId = new URLSearchParams(window.location.search).get('id');
+        let courseTitleCached = '';
+
+        function formatToIST12Hour(timeLabel) {
+            if (!timeLabel) return '';
+            const parts = timeLabel.split('-').map(p => p.trim());
+            const formatted = parts.map(part => {
+                if (/am|pm/i.test(part)) return part;
+                const [hStr, mStr = '00'] = part.split(':');
+                let h = parseInt(hStr, 10);
+                const m = mStr.padStart(2, '0');
+                const suffix = h >= 12 ? 'PM' : 'AM';
+                h = h % 12;
+                if (h === 0) h = 12;
+                return `${h}:${m} ${suffix}`;
+            });
+            return formatted.join(' - ');
+        }
+
+        function normalizeHighlights(raw) {
+            if (!raw) return [];
+            if (Array.isArray(raw)) return raw.filter(Boolean);
+            if (typeof raw === 'string') {
+                const useNewline = raw.includes('\n') || raw.includes('\r');
+                const parts = useNewline ? raw.split(/\r?\n/) : raw.split(',');
+                return parts.map(s => s.trim()).filter(Boolean);
+            }
+            return [];
+        }
+
+        // Default video disabled to respect "no video"
+        const DEFAULT_VIDEO_URL = '';
+
+        function extractVideoUrl(course) {
+            if (!course) return '';
+            const candidateKeys = [
+                'video_url', 'preview_url', 'video', 'videoLink', 'video_link',
+                'vimeo_url', 'youtube_url', 'videoUrl', 'previewUrl', 'videoURL',
+                'video_embed', 'embed', 'iframe', 'videoIframe', 'video_iframe'
+            ];
+
+            for (const key of candidateKeys) {
+                const val = course[key];
+                if (typeof val === 'string' && val.trim()) return val.trim();
+            }
+
+            const firstUrl = Object.values(course).find(val =>
+                typeof val === 'string' && (val.includes('<iframe') || /(youtube\.com|youtu\.be|vimeo\.com|player\.vimeo\.com)/i.test(val))
+            );
+            if (typeof firstUrl === 'string' && firstUrl.trim()) return firstUrl.trim();
+
+            return '';
+        }
+
+        function setPreview(course) {
+            const container = document.getElementById('videoContainer');
+            const wrapper = document.getElementById('videoWrapper');
+            if (!container || !wrapper) return;
+
+            const videoUrl = extractVideoUrl(course);
+            const imageUrl = (course?.image_url || '').trim();
+
+            if (!videoUrl && !imageUrl) {
+                wrapper.classList.add('hidden');
+                container.innerHTML = '';
+                return;
+            }
+
+            // Prefer video when present
+            if (videoUrl) {
+                const url = videoUrl.trim();
+
+                // Stored iframe
+                if (url.toLowerCase().includes('<iframe')) {
+                    wrapper.classList.remove('hidden');
+                    container.innerHTML = url;
+                    const iframe = container.querySelector('iframe');
+                    if (iframe) {
+                        iframe.style.width = '100%';
+                        iframe.style.height = '100%';
+                        iframe.style.borderRadius = '12px';
+                    }
+                    return;
+                }
+
+                // Normalize links
+                let safeUrl = url;
+                if (safeUrl.includes('youtube.com/watch')) {
+                    safeUrl = safeUrl.replace('watch?v=', 'embed/');
+                } else if (safeUrl.includes('youtu.be/')) {
+                    safeUrl = safeUrl.replace('youtu.be/', 'www.youtube.com/embed/');
+                } else if (safeUrl.includes('vimeo.com/')) {
+                    const match = safeUrl.match(/vimeo\.com\/([0-9]+)/);
+                    if (match && match[1]) {
+                        safeUrl = `https://player.vimeo.com/video/${match[1]}`;
+                    }
+                } else if (safeUrl.match(/\.mp4($|\?)/)) {
+                    wrapper.classList.remove('hidden');
+                    container.innerHTML = `
+                        <video class="w-full h-full rounded-xl" controls>
+                            <source src="${safeUrl}" type="video/mp4" />
+                            Your browser does not support the video tag.
+                        </video>
+                    `;
+                    return;
+                }
+
+                wrapper.classList.remove('hidden');
+                container.innerHTML = `
+                    <div class="relative w-full h-full aspect-video">
+                        <iframe src="${safeUrl}" class="absolute inset-0 w-full h-full" frameborder="0" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" allowfullscreen title="Course video"></iframe>
+                    </div>
+                `;
+                return;
+            }
+
+            // Otherwise show image
+            wrapper.classList.remove('hidden');
+            container.innerHTML = `
+                <div class="relative w-full h-full aspect-video">
+                    <img src="${imageUrl}" alt="${course?.title || 'Course image'}" class="absolute inset-0 w-full h-full object-cover rounded-xl" loading="lazy">
+                </div>
+            `;
+        }
+
+        function renderCourse(course) {
+            if (!course) return;
+            courseTitleCached = course.title || 'Course';
+
+            document.getElementById('courseTitle').textContent = course.title || 'Untitled course';
+            document.getElementById('courseDescription').textContent = course.description || 'No description yet.';
+            
+            // Format long description with simple paragraphs if plain text
+            const longDesc = course.long_description || course.description_long || course.description || 'No detailed description provided yet.';
+            document.getElementById('courseLong').innerHTML = longDesc.replace(/\n/g, '<br><br>');
+            
+            document.getElementById('courseBadge').innerHTML = `
+                <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+                ${course.badge || 'Course'}
+            `;
+            
+            document.getElementById('courseCategory').textContent = course.category || 'General';
+            document.getElementById('courseDifficulty').textContent = course.difficulty || 'All Levels';
+            document.getElementById('demoCourseName').textContent = course.title || 'this course';
+
+            const highlights = normalizeHighlights(course.highlights || course.bullet_points || '');
+            const highlightsList = document.getElementById('highlights');
+            highlightsList.innerHTML = highlights.length 
+                ? highlights.map(item => `<li>${item}</li>`).join('') 
+                : '<li class="text-gray-500 list-none italic">Highlights will be added soon.</li>';
+
+            const quickInfo = document.getElementById('quickInfo');
+            const infoItems = [
+                { label: 'Duration', value: course.duration },
+                { label: 'Modules', value: course.modules },
+                { label: 'Level', value: course.difficulty },
+                { label: 'Category', value: course.category }
+            ].filter(i => i.value);
+            
+            quickInfo.innerHTML = infoItems.length 
+                ? infoItems.map(i => `
+                    <div class="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+                        <span class="text-gray-500">${i.label}</span>
+                        <span class="text-white font-medium">${i.value}</span>
+                    </div>
+                `).join('') 
+                : '<div class="text-gray-500 italic">More info coming soon.</div>';
+
+            setPreview(course);
+        }
+
+        async function loadCourse() {
+            const titleEl = document.getElementById('courseTitle');
+            if (!courseId) {
+                titleEl.textContent = 'Course not found';
+                document.getElementById('courseDescription').textContent = 'Missing course id in the URL.';
+                return;
+            }
+            try {
+                const { data, error } = await supabaseClient
+                    .from('courses')
+                    .select('*')
+                    .eq('id', courseId)
+                    .maybeSingle();
+
+                if (error) throw error;
+                if (!data) {
+                    titleEl.textContent = 'Course not found';
+                    document.getElementById('courseDescription').textContent = 'This course does not exist or was removed.';
+                    return;
+                }
+                renderCourse(data);
+            } catch (err) {
+                console.error('Error loading course:', err);
+                titleEl.textContent = 'Error loading course';
+                document.getElementById('courseDescription').textContent = 'Please try again later.';
+            }
+        }
+
+        function getISTDateString(daysAhead = 0) {
+            const now = new Date();
+            const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+            const istMs = utcMs + 330 * 60000 + daysAhead * 86400000;
+            return new Date(istMs).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+        }
+
+        async function loadDemoSlots() {
+            const dateSelect = document.getElementById('demoDate');
+            const timeSelect = document.getElementById('demoTime');
+            if (!dateSelect || !timeSelect) return;
+
+            dateSelect.innerHTML = '<option value="" selected disabled>Select Date</option>';
+            timeSelect.innerHTML = '<option value="" selected disabled>Select Time</option>';
+
+            try {
+                // Get today's date in IST
+                const now = new Date();
+                const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+                const todayIST = new Date(now.getTime() + istOffset);
+                todayIST.setUTCHours(0, 0, 0, 0);
+
+                // Calculate dates: today + 14 days
+                const dates = [];
+                for (let i = 0; i <= 14; i++) {
+                    const date = new Date(todayIST);
+                    date.setDate(date.getDate() + i);
+                    dates.push(date);
+                }
+
+                // Load available time slots (these apply to all dates)
+                const { data: slots, error: slotsError } = await supabaseClient
+                    .from('demo_slots')
+                    .select('slot_time, is_available')
+                    .eq('is_available', true)
+                    .order('slot_time', { ascending: true });
+
+                if (slotsError) throw slotsError;
+
+                if (!slots || slots.length === 0) {
+                    dateSelect.innerHTML = '<option value="" selected disabled>No time slots available</option>';
+                    return;
+                }
+
+                // Format available times
+                const availableTimes = slots.map(s => s.slot_time);
+
+                // Populate date dropdown with all dates in the window
+                dateSelect.innerHTML = '<option value="" selected disabled>Select Date</option>';
+                dates.forEach(date => {
+                    const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+                    const label = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                    const option = document.createElement('option');
+                    option.value = dateStr;
+                    option.textContent = label;
+                    dateSelect.appendChild(option);
+                });
+
+                // Handle date change -> populate times with all available slots
+                dateSelect.removeEventListener('change', updateDemoTimes);
+                dateSelect.addEventListener('change', updateDemoTimes);
+
+                // Store available times for later access
+                window.demoAvailableTimes = availableTimes;
+
+            } catch (err) {
+                console.error('Error loading demo slots:', err);
+                dateSelect.innerHTML = '<option value="" selected disabled>Error loading dates</option>';
+            }
+        }
+
+        function updateDemoTimes() {
+            const timeSelect = document.getElementById('demoTime');
+            timeSelect.innerHTML = '<option value="" selected disabled>Select Time</option>';
+            
+            if (window.demoAvailableTimes && window.demoAvailableTimes.length > 0) {
+                window.demoAvailableTimes.forEach(time => {
+                    const option = document.createElement('option');
+                    option.value = time;
+                    option.textContent = time;
+                    timeSelect.appendChild(option);
+                });
+            }
+        }
+
+        async function handleDemoSubmit(event) {
+            event.preventDefault();
+            const phone = document.getElementById('phone').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const message = document.getElementById('message').value.trim();
+            const date = document.getElementById('demoDate').value;
+            const time = document.getElementById('demoTime').value;
+            const submitBtn = document.getElementById('submitDemo');
+            const submitLabel = document.getElementById('submitLabel');
+            const submitSpinner = document.getElementById('submitSpinner');
+            const submitArrow = document.getElementById('submitArrow');
+
+            if (!phone || !email || !message) return;
+
+            const lines = [];
+            lines.push(`[Course] ${courseTitleCached || 'Course'}${courseId ? ` (#${courseId})` : ''}`);
+            if (date && time) lines.push(`[Preferred Demo Slot] ${date} at ${formatToIST12Hour(time)}`);
+            lines.push('');
+            lines.push(message);
+
+            submitBtn.disabled = true;
+            submitLabel.textContent = 'Booking...';
+            submitArrow.classList.add('hidden');
+            submitSpinner.classList.remove('hidden');
+
+            try {
+                const { error } = await supabaseClient
+                    .from('leads')
+                    .insert([{ name: phone, email, message: lines.join('\n') }]);
+
+                if (error) throw error;
+                
+                // Success State
+                submitLabel.textContent = 'Request Sent!';
+                submitSpinner.classList.add('hidden');
+                submitBtn.classList.remove('surface-interactive', 'surface-element');
+                submitBtn.classList.add('bg-green-500', 'text-white', 'border-none');
+                
+                setTimeout(() => {
+                    document.getElementById('demoForm').reset();
+                    submitBtn.disabled = false;
+                    submitLabel.textContent = 'Confirm Booking';
+                    submitArrow.classList.remove('hidden');
+                    submitBtn.classList.add('surface-interactive', 'surface-element');
+                    submitBtn.classList.remove('bg-green-500');
+                }, 3000);
+
+            } catch (err) {
+                console.error('Error sending demo request:', err);
+                alert('Could not send your request. Please try again.');
+                submitBtn.disabled = false;
+                submitLabel.textContent = 'Confirm Booking';
+                submitArrow.classList.remove('hidden');
+                submitSpinner.classList.add('hidden');
+            }
+        }
+
+        function wireShareButton() {
+            const btn = document.getElementById('shareBtn');
+            if (!btn || !navigator.clipboard) return;
+            btn.addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(window.location.href);
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = `<span class="text-green-400 font-bold">Copied!</span>`;
+                    setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+                } catch (err) {
+                    console.error('Share error:', err);
+                }
+            });
+        }
+
+        document.getElementById('demoForm').addEventListener('submit', handleDemoSubmit);
+
+        // Smooth page transitions
+        function smoothNavigate(url) {
+            const transition = document.getElementById('pageTransition');
+            transition.classList.add('active');
+            setTimeout(() => {
+                window.location.href = url;
+            }, 300);
+        }
+
+        // Toggle mobile menu
+        function toggleMobileMenu() {
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
+            mobileMenuBtn?.classList.toggle('active');
+            mobileMenu?.classList.toggle('active');
+        }
+
+        // Close mobile menu when link is clicked
+        document.addEventListener('click', (e) => {
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
+            
+            if (mobileMenu?.classList.contains('active') && 
+                !mobileMenuBtn?.contains(e.target) && 
+                !mobileMenu?.contains(e.target)) {
+                mobileMenuBtn?.classList.remove('active');
+                mobileMenu?.classList.remove('active');
+            }
+        });
+
+        // Navbar scroll effect with hide/show on mobile
+        let lastScrollY = 0;
+
+        window.addEventListener('scroll', () => {
+            const navbar = document.getElementById('navbar');
+            const currentScrollY = window.scrollY;
+            const isMobile = window.innerWidth <= 768;
+
+            // Add scrolled class for styling
+            if (currentScrollY > 10) {
+                navbar?.classList.add('scrolled');
+            } else {
+                navbar?.classList.remove('scrolled');
+            }
+
+            // Mobile hide/show logic
+            if (isMobile) {
+                if (currentScrollY > lastScrollY && currentScrollY > 50) {
+                    // Scrolling down - hide navbar
+                    if (!navbar?.classList.contains('navbar-hidden')) {
+                        navbar?.classList.add('navbar-hidden');
+                    }
+                } else if (currentScrollY < lastScrollY) {
+                    // Scrolling up - show navbar
+                    navbar?.classList.remove('navbar-hidden');
+                }
+            } else {
+                // Desktop - always show navbar
+                navbar?.classList.remove('navbar-hidden');
+            }
+
+            lastScrollY = currentScrollY;
+        });
+
+        // Add smooth transitions to all internal links
+        document.addEventListener('DOMContentLoaded', () => {
+            const links = document.querySelectorAll('a[href^="courses.html"], a[href^="course.html"], a[href^="index.html"]');
+            links.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    const href = link.getAttribute('href');
+                    // Skip if it's a hash link or external
+                    if (!href || href.startsWith('#') || href.startsWith('http')) return;
+                    
+                    e.preventDefault();
+                    smoothNavigate(href);
+                });
+            });
+        });
+
+        // Auth Modal Functions
+        function openAuthModal() {
+            document.getElementById('authModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeAuthModal() {
+            document.getElementById('authModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        function toggleAuthForm(formType) {
+            const signinForm = document.getElementById('signinForm');
+            const signupForm = document.getElementById('signupForm');
+            const signinTab = document.getElementById('signinTab');
+            const signupTab = document.getElementById('signupTab');
+
+            if (formType === 'signin') {
+                signinForm.classList.remove('hidden');
+                signupForm.classList.add('hidden');
+                signinTab.classList.add('border-b-2', 'border-indigo-400', 'text-white');
+                signinTab.classList.remove('text-gray-400');
+                signupTab.classList.remove('border-b-2', 'border-indigo-400', 'text-white');
+                signupTab.classList.add('text-gray-400');
+            } else {
+                signinForm.classList.add('hidden');
+                signupForm.classList.remove('hidden');
+                signupTab.classList.add('border-b-2', 'border-indigo-400', 'text-white');
+                signupTab.classList.remove('text-gray-400');
+                signinTab.classList.remove('border-b-2', 'border-indigo-400', 'text-white');
+                signinTab.classList.add('text-gray-400');
+            }
+        }
+
+        // Auth form handlers
+        async function handleSignIn(event) {
+            event.preventDefault();
+            const email = event.target.querySelector('input[type="email"]').value;
+            const password = event.target.querySelector('input[type="password"]').value;
+            const submitBtn = event.target.querySelector('button[type="submit"]');
+            
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+            
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email,
+                    password
+                });
+                
+                if (error) throw error;
+                
+                // Success
+                closeAuthModal();
+                showNotification('Welcome back! You are now signed in.', 'success');
+                updateUIForUser(data.user);
+            } catch (error) {
+                console.error('Sign in error:', error);
+                showNotification(error.message || 'Failed to sign in. Please check your credentials.', 'error');
+            } finally {
+                // Reset button
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Sign In';
+            }
+        }
+
+        async function handleSignUp(event) {
+            event.preventDefault();
+            const form = event.target;
+            const fullName = form.querySelector('input[type="text"]').value;
+            const email = form.querySelectorAll('input[type="email"]')[0].value;
+            const password = form.querySelector('input[type="password"]').value;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+            
+            try {
+                const { data, error } = await supabaseClient.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: {
+                            full_name: fullName
+                        }
+                    }
+                });
+                
+                if (error) throw error;
+                
+                // Success
+                closeAuthModal();
+                showNotification('Account created! Please check your email to verify your account.', 'success');
+            } catch (error) {
+                console.error('Sign up error:', error);
+                showNotification(error.message || 'Failed to create account. Please try again.', 'error');
+            } finally {
+                // Reset button
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Create Account';
+            }
+        }
+        
+        // Notification system
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-[60] max-w-md gradient-border rounded-lg transform translate-x-0 transition-all duration-300`;
+            
+            const bgColor = type === 'success' ? 'bg-green-500/10' : type === 'error' ? 'bg-red-500/10' : 'bg-indigo-500/10';
+            const textColor = type === 'success' ? 'text-green-400' : type === 'error' ? 'text-red-400' : 'text-indigo-400';
+            
+            notification.innerHTML = `
+                <div class="surface-element rounded-lg p-4 ${bgColor}">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 ${textColor} flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            ${type === 'success' ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>' : type === 'error' ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>' : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>'}
+                        </svg>
+                        <p class="text-sm text-white flex-1">${message}</p>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                notification.style.transform = 'translateX(150%)';
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+        
+        // Update UI when user is logged in
+        function updateUIForUser(user) {
+            if (!user) return;
+            
+            const loginBtn = document.querySelector('button[onclick="openAuthModal()"]');
+            if (loginBtn) {
+                const userName = user.user_metadata?.full_name || user.email.split('@')[0];
+                const userEmail = user.email;
+                
+                // Replace login button with profile menu
+                const profileContainer = document.createElement('div');
+                profileContainer.className = 'relative';
+                profileContainer.id = 'profileContainer';
+                profileContainer.innerHTML = `
+                    <button onclick="toggleProfileMenu()" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
+                            ${userName.charAt(0).toUpperCase()}
+                        </div>
+                        <span class="hidden sm:inline text-white">${userName}</span>
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    
+                    <!-- Profile Dropdown -->
+                    <div id="profileDropdown" class="hidden absolute right-0 mt-2 w-64 gradient-border rounded-xl z-50">
+                        <div class="surface-element rounded-xl p-4">
+                            <div class="flex items-start gap-3 pb-4 border-b border-white/10">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                                    ${userName.charAt(0).toUpperCase()}
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-white font-medium text-sm truncate">${userName}</p>
+                                    <p class="text-gray-400 text-xs truncate">${userEmail}</p>
+                                </div>
+                            </div>
+                            <a href="admin.html" class="block w-full mt-4 gradient-border rounded-lg group">
+                                <div class="surface-element surface-interactive p-3 rounded-lg text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors flex items-center justify-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    Admin Panel
+                                </div>
+                            </a>
+                            <button onclick="handleLogout()" class="w-full mt-2 gradient-border rounded-lg group">
+                                <div class="surface-element surface-interactive p-3 rounded-lg text-sm font-medium text-red-400 hover:text-red-300 transition-colors flex items-center justify-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                                    Logout
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                loginBtn.parentNode.replaceChild(profileContainer, loginBtn);
+            }
+        }
+        
+        // Toggle profile dropdown
+        function toggleProfileMenu() {
+            const dropdown = document.getElementById('profileDropdown');
+            dropdown.classList.toggle('hidden');
+        }
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const profileContainer = document.getElementById('profileContainer');
+            if (profileContainer && !profileContainer.contains(e.target)) {
+                const dropdown = document.getElementById('profileDropdown');
+                if (dropdown) dropdown.classList.add('hidden');
+            }
+        });
+        
+        // Logout function
+        async function handleLogout() {
+            try {
+                const { error } = await supabaseClient.auth.signOut();
+                if (error) throw error;
+                
+                showNotification('Logged out successfully', 'success');
+                
+                // Reload page to reset UI
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } catch (error) {
+                console.error('Logout error:', error);
+                showNotification('Failed to logout. Please try again.', 'error');
+            }
+        }
+        
+        // Check for existing session on page load
+        async function checkSession() {
+            try {
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session?.user) {
+                    updateUIForUser(session.user);
+                }
+            } catch (error) {
+                console.error('Session check error:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Close modal when clicking outside
+            const authModal = document.getElementById('authModal');
+            if (authModal) {
+                authModal.addEventListener('click', (e) => {
+                    if (e.target === authModal) closeAuthModal();
+                });
+            }
+            
+            // Initialize
+            wireShareButton();
+            loadCourse();
+            loadDemoSlots();
+            checkSession();
+        });
+    </script>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40">
+        <div class="w-full max-w-md">
+            <div class="gradient-border rounded-2xl">
+                <div class="surface-element rounded-2xl p-8 relative">
+                    <!-- Close Button -->
+                    <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+
+                    <!-- Header -->
+                    <div class="text-center mb-8">
+                        <h2 class="text-2xl font-bold text-white mb-2">Welcome Back</h2>
+                        <p class="text-sm text-gray-400">Sign in or create an account to continue</p>
+                    </div>
+
+                    <!-- Tabs -->
+                    <div class="flex gap-8 border-b border-white/10 mb-8">
+                        <button id="signinTab" onclick="toggleAuthForm('signin')" class="pb-3 text-sm font-medium text-white border-b-2 border-indigo-400 transition-colors">Sign In</button>
+                        <button id="signupTab" onclick="toggleAuthForm('signup')" class="pb-3 text-sm font-medium text-gray-400 hover:text-white transition-colors">Sign Up</button>
+                    </div>
+
+                    <!-- Sign In Form -->
+                    <form id="signinForm" class="space-y-4" onsubmit="handleSignIn(event)">
+                        <div>
+                            <label class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Email</label>
+                            <div class="gradient-border rounded-lg">
+                                <input type="email" required class="w-full bg-[#0f1012] text-gray-200 text-sm p-3 rounded-lg border-none focus:ring-0 placeholder-gray-600" placeholder="you@example.com">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Password</label>
+                            <div class="gradient-border rounded-lg">
+                                <input type="password" required class="w-full bg-[#0f1012] text-gray-200 text-sm p-3 rounded-lg border-none focus:ring-0 placeholder-gray-600" placeholder="••••••••">
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full gradient-border rounded-lg">
+                            <div class="w-full surface-element surface-interactive p-3 rounded-lg text-sm font-medium text-white flex items-center justify-center gap-2 group">
+                                <span>Sign In</span>
+                                <svg class="w-4 h-4 text-gray-300 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                            </div>
+                        </button>
+                    </form>
+
+                    <!-- Sign Up Form -->
+                    <form id="signupForm" class="hidden space-y-4" onsubmit="handleSignUp(event)">
+                        <div>
+                            <label class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Full Name</label>
+                            <div class="gradient-border rounded-lg">
+                                <input type="text" required class="w-full bg-[#0f1012] text-gray-200 text-sm p-3 rounded-lg border-none focus:ring-0 placeholder-gray-600" placeholder="Jane Doe">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Email</label>
+                            <div class="gradient-border rounded-lg">
+                                <input type="email" required class="w-full bg-[#0f1012] text-gray-200 text-sm p-3 rounded-lg border-none focus:ring-0 placeholder-gray-600" placeholder="you@example.com">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">Password</label>
+                            <div class="gradient-border rounded-lg">
+                                <input type="password" required class="w-full bg-[#0f1012] text-gray-200 text-sm p-3 rounded-lg border-none focus:ring-0 placeholder-gray-600" placeholder="••••••••">
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full gradient-border rounded-lg">
+                            <div class="w-full surface-element surface-interactive p-3 rounded-lg text-sm font-medium text-white flex items-center justify-center gap-2 group">
+                                <span>Create Account</span>
+                                <svg class="w-4 h-4 text-gray-300 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                            </div>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
