@@ -39,10 +39,12 @@
         }
     </script>
     <style>
-        body {
+        html, body {
             background-color: #0f1012;
             color: #e5e7eb;
             overflow-x: hidden; /* Prevent horizontal scroll from animations */
+            width: 100%;
+            max-width: 100%;
         }
 
         /* --- THE CORE DESIGN SYSTEM --- */
@@ -570,7 +572,7 @@
         </div>
 
         <!-- NEW: "ABOUT ME" SECTION (Mind-Blowing Design) -->
-        <section id="about" class="max-w-6xl mx-auto mb-20 sm:mb-32 relative px-4 sm:px-6 lg:px-0">
+        <section id="about" class="max-w-6xl mx-auto mb-20 sm:mb-32 relative px-4 sm:px-6 lg:px-0 overflow-hidden">
             <!-- Background Atmospheric Glow -->
             <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] sm:w-[700px] lg:w-[800px] h-[500px] sm:h-[700px] lg:h-[800px] bg-indigo-500/5 rounded-full blur-[80px] sm:blur-[120px] pointer-events-none z-0"></div>
 
